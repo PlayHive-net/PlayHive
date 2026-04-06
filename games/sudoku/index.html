@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku — PlayHive.Net</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+/* ═══════════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --navy:#0d1b2a;
+  --navy-mid:#132338;
+  --navy-card:#1a2f47;
+  --navy-deep:#0a1520;
+  --lime:#7ed321;
+  --lime-dim:rgba(126,211,33,0.15);
+  --lime-border:rgba(126,211,33,0.35);
+  --orange:#ff7b00;
+  --cyan:#00d4ff;
+  --pink:#ff4da6;
+  --yellow:#ffd60a;
+  --text:#e8f1fa;
+  --text-dim:#7a99bb;
+  --border:rgba(255,255,255,0.08);
+  --cell:clamp(34px,7.5vmin,54px);
+  --radius:12px;
+}
+
+@font-face {
+  font-family: 'Fredoka One';
+  src: url("../../fonts/fredokaone.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+  font-weight: 200 900;
+  font-style: normal;
+}
+
+html,body{
+  width:100%;height:100%;
+  background:var(--navy);color:var(--text);
+  font-family:'Nunito',sans-serif;
+  overflow:hidden;
+}
+
+/* ═══════════════════════════════════════════════
+   SCREEN SYSTEM  –  only one visible at a time
+═══════════════════════════════════════════════ */
+.screen{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  transition:opacity .25s ease,transform .25s ease;
+}
+.screen.hidden{
+  opacity:0;pointer-events:none;transform:scale(.97);
+}
+
+/* ═══════════════════════════════════════════════
+   MENU SCREEN
+═══════════════════════════════════════════════ */
+#menu-screen{
+  background:var(--navy);
+  gap:0;
+}
+
+/* Subtle grid bg decoration */
+#menu-screen::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(126,211,33,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(126,211,33,0.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+
+#menu-inner{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;
+  gap:28px;text-align:center;padding:24px;
+}
+
+#menu-logo{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+#menu-site{
+  font-family:'Fredoka One',sans-serif;
+  font-size:clamp(.75rem,2.5vw,1rem);
+  color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;
+}
+#menu-title{
+  font-family:'Fredoka One',sans-serif;
+  font-size:clamp(2.8rem,10vw,5rem);
+  color:var(--lime);line-height:1;
+  text-shadow:0 0 40px rgba(126,211,33,0.3);
+}
+#menu-icon{font-size:clamp(2rem,7vw,3.5rem);line-height:1}
+
+/* Difficulty cards */
+#diff-cards{
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+}
+.diff-card{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:14px 20px;border-radius:var(--radius);border:2px solid transparent;
+  cursor:pointer;transition:border-color .18s,background .18s,transform .15s;
+  background:var(--navy-card);min-width:90px;
+  font-family:'Nunito',sans-serif;
+}
+.diff-card:hover{transform:translateY(-3px)}
+.diff-card.selected{border-color:var(--lime);background:var(--lime-dim)}
+.diff-card .diff-emoji{font-size:1.5rem}
+.diff-card .diff-name{
+  font-family:'Fredoka One',sans-serif;font-size:1rem;
+}
+.diff-card .diff-clues{font-size:0.72rem;color:var(--text-dim)}
+.diff-card[data-d="easy"]   .diff-name{color:var(--lime)}
+.diff-card[data-d="medium"] .diff-name{color:var(--orange)}
+.diff-card[data-d="hard"]   .diff-name{color:var(--pink)}
+
+/* Big Play button */
+#play-btn{
+  font-family:'Fredoka One',sans-serif;font-size:1.35rem;
+  padding:14px 52px;border:none;border-radius:var(--radius);
+  background:var(--lime);color:#0a1520;cursor:pointer;
+  transition:transform .14s,opacity .14s,box-shadow .14s;
+  box-shadow:0 4px 24px rgba(126,211,33,0.35);
+  letter-spacing:.5px;
+}
+#play-btn:hover{transform:scale(1.06);box-shadow:0 6px 32px rgba(126,211,33,0.5)}
+#play-btn:active{transform:scale(.97)}
+
+#menu-tip{font-size:0.75rem;color:var(--text-dim);max-width:280px;line-height:1.5}
+
+/* ═══════════════════════════════════════════════
+   GAME SCREEN  –  portrait (mobile-first)
+═══════════════════════════════════════════════ */
+#game-screen{
+  background:var(--navy);
+  padding:8px;gap:6px;
+  /* single-column, items centered */
+}
+
+/* ── Top bar ── */
+#topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;max-width:520px;
+}
+#topbar-left,#topbar-right{display:flex;align-items:center;gap:8px;min-width:70px}
+#topbar-right{justify-content:flex-end}
+
+#menu-back-btn{
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.75rem;
+  padding:6px 12px;border:2px solid var(--border);border-radius:8px;
+  background:var(--navy-mid);color:var(--text-dim);cursor:pointer;
+  transition:background .14s,color .14s,border-color .14s;
+  display:flex;align-items:center;gap:4px;
+}
+#menu-back-btn:hover{background:var(--navy-card);color:var(--text);border-color:rgba(255,255,255,.2)}
+
+#topbar-diff{
+  font-family:'Fredoka One',sans-serif;font-size:.85rem;
+  padding:4px 10px;border-radius:6px;
+}
+#topbar-diff.easy  {background:rgba(126,211,33,.15);color:var(--lime)}
+#topbar-diff.medium{background:rgba(255,123,0,.15); color:var(--orange)}
+#topbar-diff.hard  {background:rgba(255,77,166,.15);color:var(--pink)}
+
+#timer{
+  font-family:'Fredoka One',sans-serif;
+  font-size:clamp(.95rem,3vw,1.2rem);
+  color:var(--cyan);
+}
+#paused-badge{
+  font-family:'Fredoka One',sans-serif;font-size:.8rem;
+  color:var(--yellow);background:rgba(255,214,10,.1);
+  padding:3px 8px;border-radius:6px;
+  display:none;
+}
+#paused-badge.show{display:block}
+
+/* ── Sudoku grid ── */
+#grid-wrap{flex-shrink:0}
+
+#sudoku-grid{
+  display:grid;
+  grid-template-columns:repeat(9,var(--cell));
+  grid-template-rows:repeat(9,var(--cell));
+  border:2.5px solid rgba(126,211,33,.55);
+  border-radius:10px;overflow:hidden;
+  background:var(--navy-card);
+  box-shadow:0 4px 32px rgba(0,0,0,.45);
+}
+
+.cell{
+  width:var(--cell);height:var(--cell);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;cursor:pointer;
+  font-family:'Nunito',sans-serif;
+  font-size:clamp(.95rem,3vmin,1.3rem);font-weight:800;
+  border:1px solid rgba(255,255,255,.07);
+  background:var(--navy-card);color:var(--text);
+  transition:background .13s;user-select:none;
+}
+.cell:focus-visible{outline:2.5px solid var(--lime);outline-offset:-2px;z-index:3}
+.cell[data-c="3"],.cell[data-c="6"]{border-left:2.5px solid rgba(126,211,33,.45)}
+.cell[data-r="3"],.cell[data-r="6"]{border-top:2.5px solid rgba(126,211,33,.45)}
+.cell.given  {background:#1f3a57;color:#fff;cursor:default}
+.cell.player {color:var(--lime)}
+.cell.selected{background:rgba(126,211,33,.2)!important;border-color:var(--lime)!important;z-index:2}
+.cell.highlight-num {background:rgba(126,211,33,.08)}
+.cell.highlight-zone{background:rgba(255,255,255,.04)}
+.cell.error  {background:rgba(255,123,0,.22)!important;border-color:var(--orange)!important;color:var(--orange)!important}
+.notes-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  width:90%;height:90%;position:absolute;
+}
+.note-digit{
+  font-size:clamp(8px,1.8vmin,12px);font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-dim);line-height:1;
+}
+
+/* ── Controls (numpad + actions) –  portrait stacks below grid ── */
+#controls{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  width:100%;max-width:520px;
+}
+
+/* 3×3 numpad grid + erase */
+#numpad-wrap{
+  display:flex;align-items:center;gap:6px;
+}
+#numpad{
+  display:grid;
+  grid-template-columns:repeat(3,var(--cell));
+  grid-template-rows:repeat(3,var(--cell));
+  gap:4px;
+}
+.num-btn{
+  width:var(--cell);height:var(--cell);
+  font-family:'Fredoka One',sans-serif;
+  font-size:clamp(1rem,3.5vmin,1.4rem);
+  border:2px solid var(--lime-border);border-radius:10px;
+  background:var(--navy-card);color:var(--lime);cursor:pointer;
+  transition:background .13s,transform .1s;
+  display:flex;align-items:center;justify-content:center;
+}
+.num-btn:hover{background:var(--lime-dim);transform:scale(1.07)}
+.num-btn:active{transform:scale(.93)}
+
+/* Right-side stack: erase + notes + undo */
+#side-actions{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.side-btn{
+  width:calc(var(--cell) * 1.18);
+  height:calc(var(--cell) * 0.88);
+  font-family:'Nunito',sans-serif;font-weight:800;
+  font-size:clamp(.6rem,1.8vmin,.75rem);
+  border-radius:9px;border:2px solid var(--border);
+  background:var(--navy-mid);color:var(--text-dim);
+  cursor:pointer;transition:background .13s,color .13s,border-color .13s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;line-height:1;
+}
+.side-btn .side-icon{font-size:clamp(.95rem,2.5vmin,1.15rem)}
+.side-btn:hover{background:var(--navy-card);color:var(--text);border-color:rgba(255,255,255,.2)}
+.side-btn:active{transform:scale(.95)}
+#notes-btn.active{background:rgba(0,212,255,.12);color:var(--cyan);border-color:rgba(0,212,255,.35)}
+#erase-btn{border-color:rgba(255,123,0,.35);color:var(--orange)}
+#erase-btn:hover{background:rgba(255,123,0,.12)}
+
+/* Bottom action row (new game / hint) */
+#bottom-actions{
+  display:flex;gap:6px;
+}
+.action-btn{
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.75rem;
+  padding:7px 14px;border:2px solid var(--border);border-radius:10px;
+  background:var(--navy-mid);color:var(--text-dim);cursor:pointer;
+  transition:background .14s,color .14s,border-color .14s,transform .1s;
+  display:flex;align-items:center;gap:5px;
+}
+.action-btn:hover{background:var(--navy-card);color:var(--text);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+.action-btn:active{transform:translateY(0)}
+
+/* ═══════════════════════════════════════════════
+   DESKTOP / LANDSCAPE  ≥ 680px wide  AND  landscape
+   Two-column: board LEFT, controls RIGHT
+═══════════════════════════════════════════════ */
+@media (min-width:680px){
+  #game-screen{
+    flex-direction:row;
+    align-items:center;justify-content:center;
+    gap:20px;padding:16px;
+  }
+
+  /* Left column: just the grid */
+  #grid-col{display:flex;flex-direction:column;align-items:center;gap:10px}
+
+  /* Right column: controls panel */
+  #controls{
+    max-width:none;
+    width:calc(var(--cell)*3 + 8px + calc(var(--cell)*1.18) + 6px);
+    align-items:flex-start;
+    justify-content:center;
+    height:calc(var(--cell)*9 + 2.5px*2); /* match grid height */
+  }
+
+  #numpad-wrap{flex-direction:row}
+
+  #bottom-actions{flex-direction:column;align-items:stretch}
+  .action-btn{justify-content:center}
+
+  /* Move topbar into left col on desktop */
+  #topbar{max-width:calc(var(--cell)*9);width:calc(var(--cell)*9)}
+}
+
+/* Very tall portrait phones: allow slight scroll on controls only */
+@media (max-height:640px) and (max-width:679px){
+  #game-screen{justify-content:flex-start;padding-top:4px}
+}
+
+/* ═══════════════════════════════════════════════
+   WIN OVERLAY
+═══════════════════════════════════════════════ */
+#win-overlay{
+  display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(10,21,32,.88);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;
+  text-align:center;
+}
+#win-overlay.show{display:flex}
+#win-box{
+  background:var(--navy-card);border:2px solid var(--lime-border);
+  border-radius:20px;padding:36px 48px;max-width:340px;width:90%;
+  box-shadow:0 8px 48px rgba(0,0,0,.6);
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1) both;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+@keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+#win-title{font-family:'Fredoka One',sans-serif;font-size:2rem;color:var(--lime)}
+#win-stats{color:var(--text-dim);font-size:.95rem;line-height:1.7}
+#win-actions{display:flex;flex-direction:column;gap:8px;width:100%}
+.win-btn{
+  border:none;border-radius:12px;
+  font-family:'Fredoka One',sans-serif;font-size:1.05rem;
+  padding:11px 24px;cursor:pointer;
+  transition:transform .12s,opacity .12s;
+}
+.win-btn:hover{transform:scale(1.05);opacity:.9}
+#play-again-btn{background:var(--lime);color:#0a1520}
+#back-menu-btn{background:var(--navy-mid);color:var(--text-dim);border:2px solid var(--border)}
+
+/* ── Confetti ── */
+#confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:99}
+
+/* ═══════════════════════════════════════════════
+   PAUSE SCREEN  (click timer to pause)
+═══════════════════════════════════════════════ */
+#pause-overlay{
+  display:none;position:fixed;inset:0;z-index:90;
+  background:rgba(10,21,32,.82);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+}
+#pause-overlay.show{display:flex}
+#pause-box{
+  background:var(--navy-card);border:2px solid var(--border);
+  border-radius:20px;padding:32px 40px;text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+  animation:popIn .28s cubic-bezier(.34,1.56,.64,1) both;
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+}
+#pause-title{font-family:'Fredoka One',sans-serif;font-size:1.8rem;color:var(--yellow)}
+#pause-time {color:var(--text-dim);font-size:.9rem}
+#resume-btn{
+  background:var(--lime);color:#0a1520;border:none;border-radius:12px;
+  font-family:'Fredoka One',sans-serif;font-size:1.05rem;
+  padding:10px 32px;cursor:pointer;
+  transition:transform .12s;
+}
+#resume-btn:hover{transform:scale(1.06)}
+#pause-menu-btn{
+  background:none;border:2px solid var(--border);border-radius:12px;
+  font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;
+  color:var(--text-dim);padding:8px 24px;cursor:pointer;
+  transition:color .14s,border-color .14s;
+}
+#pause-menu-btn:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ MENU SCREEN ═══════════════════ -->
+<div class="screen" id="menu-screen">
+  <div id="menu-inner">
+    <div id="menu-logo">
+      <img src="icon.png" alt="Sudoku" width="100" />
+      <div id="menu-title">Sudoku</div>
+    </div>
+
+    <div id="diff-cards">
+      <div class="diff-card selected" data-d="easy"   onclick="selectDiff('easy')">
+        <span class="diff-emoji">🌱</span>
+        <span class="diff-name">Easy</span>
+        <span class="diff-clues">36 clues</span>
+      </div>
+      <div class="diff-card" data-d="medium" onclick="selectDiff('medium')">
+        <span class="diff-emoji">🔥</span>
+        <span class="diff-name">Medium</span>
+        <span class="diff-clues">30 clues</span>
+      </div>
+      <div class="diff-card" data-d="hard" onclick="selectDiff('hard')">
+        <span class="diff-emoji">💀</span>
+        <span class="diff-name">Hard</span>
+        <span class="diff-clues">22 clues</span>
+      </div>
+    </div>
+
+    <button id="play-btn" onclick="startGame()">▶ Play</button>
+
+    <div id="menu-tip">Use keyboard arrows & numbers,<br>or tap/click cells on mobile</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ GAME SCREEN ═══════════════════ -->
+<div class="screen hidden" id="game-screen">
+
+  <!-- Left column wraps topbar + grid (on desktop) -->
+  <div id="grid-col">
+    <!-- Top bar -->
+    <div id="topbar">
+      <div id="topbar-left">
+        <button id="menu-back-btn" onclick="goToMenu()">Menu</button>
+      </div>
+      <div id="topbar-center" style="display:flex;align-items:center;gap:8px">
+        <div id="timer" onclick="togglePause()" title="Click to pause" style="cursor:pointer">00:00</div>
+        <div id="paused-badge">PAUSED</div>
+      </div>
+      <div id="topbar-right">
+        <div id="topbar-diff" class="easy">Easy</div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div id="grid-wrap">
+      <div id="sudoku-grid"></div>
+    </div>
+  </div><!-- /grid-col -->
+
+  <!-- Right column: controls -->
+  <div id="controls">
+
+    <!-- 3×3 numpad + side actions -->
+    <div id="numpad-wrap">
+      <div id="numpad">
+        <!-- filled by JS -->
+      </div>
+      <div id="side-actions">
+        <button class="side-btn" id="erase-btn"  onclick="inputNum(0)">
+          <span class="side-icon">✕</span>Erase
+        </button>
+        <button class="side-btn" id="notes-btn"  onclick="toggleNotes()">
+          <span class="side-icon">✏️</span>Notes
+        </button>
+        <button class="side-btn" id="undo-btn"   onclick="undoMove()">
+          <span class="side-icon">↩</span>Undo
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom actions -->
+    <div id="bottom-actions">
+      <button class="action-btn" onclick="newGame()">🔄 New Puzzle</button>
+      <button class="action-btn" onclick="hint()">💡 Hint</button>
+    </div>
+
+  </div><!-- /controls -->
+</div><!-- /game-screen -->
+
+<!-- ═══════════════════ PAUSE OVERLAY ═══════════════════ -->
+<div id="pause-overlay">
+  <div id="pause-box">
+    <div id="pause-title">⏸ Paused</div>
+    <div id="pause-time"></div>
+    <button id="resume-btn"     onclick="togglePause()">▶ Resume</button>
+    <button id="pause-menu-btn" onclick="goToMenu()">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ WIN OVERLAY ═══════════════════ -->
+<div id="win-overlay">
+  <canvas id="confetti-canvas"></canvas>
+  <div id="win-box">
+    <div id="win-title">🎉 Solved!</div>
+    <div id="win-stats"></div>
+    <div id="win-actions">
+      <button class="win-btn" id="play-again-btn" onclick="newGame()">Play Again</button>
+      <button class="win-btn" id="back-menu-btn"  onclick="goToMenu()">Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let board=[],solution=[],given=[];
+let notes=mkNotes();
+let selected=null,notesMode=false;
+let history=[];
+let difficulty='easy';
+let timerVal=0,timerInterval=null;
+let won=false,paused=false;
+let confettiFrame=null;
+let hintsUsed=0;
+
+function mkNotes(){return Array.from({length:9},()=>Array.from({length:9},()=>new Set()))}
+
+/* ══════════════════════════════════════════════
+   SUDOKU ENGINE
+══════════════════════════════════════════════ */
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){let j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+
+function isValid(b,r,c,n){
+  for(let i=0;i<9;i++){if(b[r][i]===n||b[i][c]===n)return false}
+  let br=r-r%3,bc=c-c%3;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(b[br+i][bc+j]===n)return false;
+  return true;
+}
+
+function solve(b){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!b[r][c]){
+      for(let n of shuffle([1,2,3,4,5,6,7,8,9])){
+        if(isValid(b,r,c,n)){b[r][c]=n;if(solve(b))return true;b[r][c]=0}
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+function countSolutions(b,max=2){
+  let count=0;
+  function go(){
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      if(!b[r][c]){
+        for(let n=1;n<=9;n++){
+          if(isValid(b,r,c,n)){b[r][c]=n;go();b[r][c]=0;if(count>=max)return}
+        }
+        return;
+      }
+    }
+    count++;
+  }
+  go();return count;
+}
+
+function generatePuzzle(diff){
+  let b=Array.from({length:9},()=>Array(9).fill(0));
+  solve(b);
+  let sol=b.map(r=>[...r]);
+  let clues={easy:36,medium:30,hard:22}[diff];
+  let cells=shuffle([...Array(81).keys()]);
+  let removed=0,target=81-clues;
+  for(let idx of cells){
+    if(removed>=target)break;
+    let r=idx/9|0,c=idx%9;
+    let v=b[r][c];b[r][c]=0;
+    let tmp=b.map(x=>[...x]);
+    if(countSolutions(tmp,2)!==1)b[r][c]=v;
+    else removed++;
+  }
+  return{puzzle:b,solution:sol};
+}
+
+/* ══════════════════════════════════════════════
+   GRID INIT & RENDER
+══════════════════════════════════════════════ */
+function initGrid(){
+  const g=document.getElementById('sudoku-grid');
+  g.innerHTML='';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    let el=document.createElement('div');
+    el.className='cell';
+    el.dataset.r=r;el.dataset.c=c;
+    el.tabIndex=0;
+    el.addEventListener('click',()=>selectCell(r,c));
+    g.appendChild(el);
+  }
+}
+
+function initNumpad(){
+  const pad=document.getElementById('numpad');
+  pad.innerHTML='';
+  for(let n=1;n<=9;n++){
+    let btn=document.createElement('button');
+    btn.className='num-btn';
+    btn.textContent=n;
+    btn.addEventListener('click',()=>inputNum(n));
+    pad.appendChild(btn);
+  }
+}
+
+function renderGrid(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    let el=cellEl(r,c);
+    el.className='cell';
+    el.innerHTML='';
+    if(given[r][c]){
+      el.classList.add('given');
+      el.textContent=board[r][c];
+    }else if(board[r][c]){
+      el.classList.add('player');
+      el.textContent=board[r][c];
+    }else if(notes[r][c].size){
+      renderNotes(el,r,c);
+    }
+  }
+  if(selected)applyHighlights(selected[0],selected[1]);
+}
+
+function renderNotes(el,r,c){
+  let ng=document.createElement('div');ng.className='notes-grid';
+  for(let d=1;d<=9;d++){
+    let nd=document.createElement('div');nd.className='note-digit';
+    nd.textContent=notes[r][c].has(d)?d:'';
+    ng.appendChild(nd);
+  }
+  el.appendChild(ng);
+}
+
+function cellEl(r,c){return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`)}
+
+function applyHighlights(r,c){
+  document.querySelectorAll('.cell').forEach(el=>{
+    el.classList.remove('selected','highlight-num','highlight-zone','error');
+    let er=+el.dataset.r,ec=+el.dataset.c;
+    if(er===r||ec===c||(er-er%3===r-r%3&&ec-ec%3===c-c%3))
+      el.classList.add('highlight-zone');
+    if(board[r][c]&&board[er][ec]===board[r][c])
+      el.classList.add('highlight-num');
+    if(board[er][ec]&&!given[er][ec]){
+      let val=board[er][ec];board[er][ec]=0;
+      if(!isValid(board,er,ec,val))el.classList.add('error');
+      board[er][ec]=val;
+    }
+  });
+  cellEl(r,c)?.classList.add('selected');
+}
+
+function selectCell(r,c){
+  if(won||paused)return;
+  selected=[r,c];applyHighlights(r,c);
+}
+
+/* ══════════════════════════════════════════════
+   INPUT
+══════════════════════════════════════════════ */
+function inputNum(n){
+  if(!selected||won||paused)return;
+  let[r,c]=selected;
+  if(given[r][c])return;
+  if(notesMode&&n>0){
+    notes[r][c].has(n)?notes[r][c].delete(n):notes[r][c].add(n);
+    renderGrid();return;
+  }
+  history.push({r,c,v:board[r][c],ns:new Set(notes[r][c])});
+  if(history.length>60)history.shift();
+  board[r][c]=n;
+  notes[r][c].clear();
+  if(n>0){
+    let br=r-r%3,bc=c-c%3;
+    for(let i=0;i<9;i++){notes[r][i].delete(n);notes[i][c].delete(n)}
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++)notes[br+i][bc+j].delete(n);
+  }
+  renderGrid();
+  if(n)checkWin();
+}
+
+function toggleNotes(){
+  notesMode=!notesMode;
+  document.getElementById('notes-btn').classList.toggle('active',notesMode);
+}
+
+function undoMove(){
+  if(!history.length||won||paused)return;
+  let{r,c,v,ns}=history.pop();
+  board[r][c]=v;notes[r][c]=ns;
+  renderGrid();selectCell(r,c);
+}
+
+function hint(){
+  if(won||paused)return;
+  // Find an empty or wrong cell to reveal
+  let empties=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!given[r][c]&&board[r][c]!==solution[r][c])empties.push([r,c]);
+  }
+  if(!empties.length)return;
+  let[r,c]=empties[Math.random()*empties.length|0];
+  history.push({r,c,v:board[r][c],ns:new Set(notes[r][c])});
+  board[r][c]=solution[r][c];
+  notes[r][c].clear();
+  hintsUsed++;
+  selectCell(r,c);
+  renderGrid();
+  checkWin();
+}
+
+/* ══════════════════════════════════════════════
+   WIN CHECK
+══════════════════════════════════════════════ */
+function checkWin(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(board[r][c]!==solution[r][c])return;
+  won=true;stopTimer();
+  let timeStr=formatTime(timerVal);
+  let hintStr=hintsUsed?`<br>Hints used: <strong>${hintsUsed}</strong>`:'';
+  document.getElementById('win-stats').innerHTML=
+    `Difficulty: <strong style="color:var(--lime)">${difficulty.charAt(0).toUpperCase()+difficulty.slice(1)}</strong><br>`+
+    `Time: <strong style="color:var(--cyan)">${timeStr}</strong>${hintStr}`;
+  document.getElementById('win-overlay').classList.add('show');
+  startConfetti();
+}
+
+/* ══════════════════════════════════════════════
+   TIMER
+══════════════════════════════════════════════ */
+function startTimer(){
+  stopTimer();timerVal=0;updateTimerDisplay();
+  timerInterval=setInterval(()=>{timerVal++;updateTimerDisplay()},1000);
+}
+function stopTimer(){clearInterval(timerInterval);timerInterval=null}
+function updateTimerDisplay(){
+  document.getElementById('timer').textContent=formatTime(timerVal);
+}
+function formatTime(t){
+  let h=Math.floor(t/3600);
+  let m=String(Math.floor((t%3600)/60)).padStart(2,'0');
+  let s=String(t%60).padStart(2,'0');
+  return h>0?`${h}:${m}:${s}`:`${m}:${s}`;
+}
+
+/* ══════════════════════════════════════════════
+   PAUSE
+══════════════════════════════════════════════ */
+function togglePause(){
+  if(won)return;
+  paused=!paused;
+  if(paused){
+    stopTimer();
+    document.getElementById('paused-badge').classList.add('show');
+    document.getElementById('pause-time').textContent='Time: '+formatTime(timerVal);
+    document.getElementById('pause-overlay').classList.add('show');
+  }else{
+    timerInterval=setInterval(()=>{timerVal++;updateTimerDisplay()},1000);
+    document.getElementById('paused-badge').classList.remove('show');
+    document.getElementById('pause-overlay').classList.remove('show');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SCREEN ROUTING
+══════════════════════════════════════════════ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.toggle('hidden',s.id!==id);
+  });
+}
+
+function selectDiff(d){
+  difficulty=d;
+  document.querySelectorAll('.diff-card').forEach(c=>{
+    c.classList.toggle('selected',c.dataset.d===d);
+  });
+}
+
+function startGame(){
+  newGame();
+  showScreen('game-screen');
+}
+
+function goToMenu(){
+  // Pause timer and dismiss overlays
+  if(!paused&&!won)stopTimer();
+  document.getElementById('pause-overlay').classList.remove('show');
+  document.getElementById('win-overlay').classList.remove('show');
+  if(confettiFrame){cancelAnimationFrame(confettiFrame);confettiFrame=null}
+  const cv=document.getElementById('confetti-canvas');
+  cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+  showScreen('menu-screen');
+}
+
+/* ══════════════════════════════════════════════
+   NEW GAME
+══════════════════════════════════════════════ */
+function newGame(){
+  // Close any overlays
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('pause-overlay').classList.remove('show');
+  document.getElementById('paused-badge').classList.remove('show');
+  if(confettiFrame){cancelAnimationFrame(confettiFrame);confettiFrame=null}
+  const cv=document.getElementById('confetti-canvas');
+  cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+
+  // Update topbar diff badge
+  let badge=document.getElementById('topbar-diff');
+  badge.className=`${difficulty}`;badge.id='topbar-diff';
+  badge.textContent=difficulty.charAt(0).toUpperCase()+difficulty.slice(1);
+
+  // Generate
+  let{puzzle,solution:sol}=generatePuzzle(difficulty);
+  board=puzzle.map(r=>[...r]);
+  solution=sol;
+  given=puzzle.map(r=>r.map(v=>!!v));
+  notes=mkNotes();
+  history=[];won=false;paused=false;notesMode=false;selected=null;hintsUsed=0;
+  document.getElementById('notes-btn').classList.remove('active');
+
+  renderGrid();
+  startTimer();
+  // Ensure game screen is visible
+  showScreen('game-screen');
+}
+
+/* ══════════════════════════════════════════════
+   CONFETTI
+══════════════════════════════════════════════ */
+function startConfetti(){
+  const cv=document.getElementById('confetti-canvas');
+  cv.width=innerWidth;cv.height=innerHeight;
+  const ctx=cv.getContext('2d');
+  const colors=['#7ed321','#00d4ff','#ff7b00','#ff4da6','#ffd60a'];
+  let particles=Array.from({length:130},()=>({
+    x:Math.random()*innerWidth,y:Math.random()*-200,
+    vx:(Math.random()-.5)*3,vy:Math.random()*3+2,
+    r:Math.random()*6+3,c:colors[Math.random()*colors.length|0],
+    rot:Math.random()*360,rv:(Math.random()-.5)*6
+  }));
+  let dead=false;
+  (function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    particles.forEach(p=>{
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.c;ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);
+      ctx.restore();
+      p.x+=p.vx;p.y+=p.vy;p.rot+=p.rv;
+    });
+    particles=particles.filter(p=>p.y<innerHeight+20);
+    if(particles.length&&!dead)confettiFrame=requestAnimationFrame(draw);
+    else ctx.clearRect(0,0,cv.width,cv.height);
+  })();
+  setTimeout(()=>{dead=true;cancelAnimationFrame(confettiFrame);ctx.clearRect(0,0,cv.width,cv.height)},5500);
+}
+
+/* ══════════════════════════════════════════════
+   KEYBOARD
+══════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(document.getElementById('win-overlay').classList.contains('show'))return;
+    if(!won)togglePause();
+    return;
+  }
+  if(won||paused)return;
+  if(e.key>='1'&&e.key<='9'){inputNum(+e.key);return}
+  if(e.key==='Backspace'||e.key==='Delete'||e.key==='0'){inputNum(0);return}
+  if(e.key==='n'||e.key==='N'){toggleNotes();return}
+  if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undoMove();return}
+  if(!selected)return;
+  let[r,c]=selected;
+  const dirs={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if(dirs[e.key]){
+    e.preventDefault();
+    let[dr,dc]=dirs[e.key];
+    let nr=Math.max(0,Math.min(8,r+dr)),nc=Math.max(0,Math.min(8,c+dc));
+    selectCell(nr,nc);
+  }
+});
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+initGrid();
+initNumpad();
+// Start on menu
+showScreen('menu-screen');
+</script>
+</body>
+</html>

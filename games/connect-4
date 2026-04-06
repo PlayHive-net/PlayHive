@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Connect 4 — PlayHive.Net</title>
+  <style>
+    :root {
+      --navy:#0d1b2a;--navy-mid:#132338;--navy-card:#1a2f47;
+      --lime:#7ed321;--lime-dark:#5fab00;
+      --orange:#ff7b00;--cyan:#00d4ff;--pink:#ff4da6;--yellow:#ffd60a;
+      --red:#ff3d3d;--green:#4cff8f;
+      --text:#e8f1fa;--text-dim:#7a99bb;--text-dark:#3d5a75;
+      --border:rgba(255,255,255,0.08);
+      --radius:10px;--radius-lg:14px;
+    }
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;}
+    body{
+      font-family:'Nunito',sans-serif;background:var(--navy);color:var(--text);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100vh;position:relative;user-select:none;-webkit-user-select:none;
+    }
+    body::before{content:'';position:fixed;inset:0;
+      background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);
+      background-size:40px 40px;pointer-events:none;z-index:0}
+    .glow-blob{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;opacity:0.18;}
+    .glow-blob-1{width:350px;height:350px;background:#00d4ff;top:-80px;left:-80px;}
+    .glow-blob-2{width:280px;height:280px;background:#ff4da6;bottom:-60px;right:-60px;}
+
+    /* ── WRAPPER ── */
+    .game-wrapper{
+      position:relative;z-index:1;
+      display:flex;flex-direction:column;align-items:center;
+      gap:10px;padding:16px;width:100%;max-width:440px;
+    }
+
+    /* ── HEADER ── */
+    .game-header{width:100%;display:flex;align-items:flex-start;justify-content:space-between;}
+    .game-title{font-family:'Fredoka One',cursive;font-size:2.2rem;color:var(--lime);letter-spacing:.04em;line-height:1;}
+    .game-subtitle{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dark);margin-top:3px;}
+    .score-row{display:flex;gap:8px;margin-top:2px;}
+    .score-box{
+      background:var(--navy-card);border:2px solid var(--border);
+      border-radius:var(--radius);padding:5px 14px;text-align:center;min-width:68px;
+    }
+    .score-label{font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);}
+    .score-val{font-family:'Fredoka One',cursive;font-size:1.35rem;line-height:1.1;color:#fff;}
+
+    /* ── BOARD WRAP ── */
+    .board-wrap{
+      position:relative;width:100%;z-index:1;
+      background:var(--navy-mid);border:2px solid var(--border);
+      border-radius:var(--radius-lg);padding:20px;
+      box-shadow:0 12px 40px rgba(0,0,0,.5);
+      min-height:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    }
+
+    /* ── STATUS AREA ── */
+    .status-area{text-align:center;width:100%;display:flex;justify-content:space-between;align-items:center;}
+    .status-text{
+      font-family:'Fredoka One',cursive;font-size:1.4rem;color:#fff;
+      letter-spacing:.03em;line-height:1.2;
+    }
+    .turn-indicator{
+      width: 20px; height: 20px; border-radius: 50%;
+      box-shadow: 0 0 10px currentColor; transition: background 0.3s;
+    }
+    .turn-player { background: var(--cyan); color: var(--cyan); }
+    .turn-ai { background: var(--pink); color: var(--pink); }
+
+    /* ── CONNECT 4 GRID ── */
+    .c4-grid{
+      display:grid;grid-template-columns:repeat(7, 1fr);gap:6px;
+      width:100%;max-width:340px;margin:0 auto;
+      background:var(--navy-card);padding:10px;border-radius:var(--radius);
+      border:3px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.4);
+    }
+    .cell-col {
+      display:flex;flex-direction:column;gap:6px;cursor:pointer;
+      border-radius: 20px; padding: 2px; transition: background 0.2s;
+    }
+    .cell-col:hover { background: rgba(255,255,255,0.05); }
+    
+    .cell{
+      aspect-ratio:1/1; width: 100%;
+      background:var(--navy);border-radius:50%;
+      border:2px solid rgba(255,255,255,0.05);
+      display:flex;align-items:center;justify-content:center;
+      position:relative;overflow:hidden;
+    }
+    
+    .cell.p1 {
+      background:var(--cyan);border-color:var(--cyan);
+      box-shadow:inset 0 0 10px rgba(0,0,0,0.3), 0 0 12px rgba(0,212,255,0.6);
+      animation: dropIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .cell.p2 {
+      background:var(--pink);border-color:var(--pink);
+      box-shadow:inset 0 0 10px rgba(0,0,0,0.3), 0 0 12px rgba(255,77,166,0.6);
+      animation: dropIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .cell.win::after{
+      content:'';position:absolute;inset:0;
+      border: 4px solid var(--yellow); border-radius: 50%;
+      animation: popWin 0.6s infinite alternate;
+    }
+
+    @keyframes dropIn {
+      0% { transform: translateY(-200px); opacity: 0; }
+      60% { transform: translateY(10px); opacity: 1; }
+      80% { transform: translateY(-5px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes popWin {
+      from { transform: scale(0.8); box-shadow: 0 0 5px var(--yellow); }
+      to { transform: scale(1); box-shadow: 0 0 15px var(--yellow); }
+    }
+
+    /* ── OVERLAYS ── */
+    .overlay{
+      position:absolute;inset:0;border-radius:var(--radius-lg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:16px;z-index:10;
+      background:rgba(13,27,42,0.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      text-align:center;padding:28px;transition:opacity .25s;
+    }
+    .overlay.hidden{display:none;}
+    .overlay:not(.hidden){animation:popIn .3s ease both;}
+    .overlay-emoji{font-size:3rem;line-height:1;}
+    .overlay-title{font-family:'Fredoka One',cursive;font-size:2rem;color:#fff;letter-spacing:.03em;line-height:1.1;}
+    .overlay-title em{font-style:normal;color:var(--lime);}
+    .overlay-title .bad{color:var(--orange);}
+    .overlay-sub{font-size:.85rem;font-weight:700;color:var(--text-dim);max-width:260px;line-height:1.6;}
+    
+    .result-stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+    .stat-pill{
+      background:var(--navy-card);border:1.5px solid var(--border);border-radius:100px;
+      padding:6px 16px;text-align:center;
+    }
+    .stat-val{font-family:'Fredoka One',cursive;font-size:1.1rem;color:#fff;}
+    .stat-lbl{font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);}
+
+    /* ── BUTTONS ── */
+    .btn-play{
+      display:inline-flex;align-items:center;gap:8px;
+      font-family:'Fredoka One',cursive;font-size:1.1rem;letter-spacing:.04em;
+      padding:13px 36px;border-radius:100px;border:none;cursor:pointer;
+      background:var(--lime);color:var(--navy);
+      box-shadow:0 4px 20px rgba(126,211,33,.4);transition:all .2s;
+    }
+    .btn-play:hover{background:var(--lime-dark);transform:translateY(-2px);box-shadow:0 8px 28px rgba(126,211,33,.5);}
+    .btn-play:active{transform:translateY(0);}
+
+    /* ── BOTTOM BAR ── */
+    .bottom-bar{display:flex;align-items:center;justify-content:space-between;width:100%;}
+    .difficulty-pills{display:flex;gap:6px;}
+    .diff-pill{
+      font-family:'Fredoka One',cursive;font-size:.78rem;letter-spacing:.03em;
+      padding:6px 14px;border-radius:100px;border:2px solid var(--border);cursor:pointer;
+      background:var(--navy-card);color:var(--text-dim);transition:all .2s;
+    }
+    .diff-pill.active{border-color:var(--lime);color:var(--lime);background:rgba(126,211,33,.08);}
+    .diff-pill:hover:not(.active){border-color:var(--text-dim);color:var(--text);}
+    .hint{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dark);}
+
+    /* ── SCORE DELTA ── */
+    .score-delta{
+      position:absolute;top:10px;right:14px;font-family:'Fredoka One',cursive;
+      font-size:1rem;pointer-events:none;
+      animation:deltaFloat .9s ease forwards;z-index:20;
+    }
+    .score-delta.plus{color:var(--lime);}
+    @keyframes deltaFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-32px)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.85) translateY(12px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  </style>
+</head>
+<body>
+
+<div class="glow-blob glow-blob-1"></div>
+<div class="glow-blob glow-blob-2"></div>
+
+<div class="game-wrapper" id="game-wrapper">
+  <div class="game-header">
+    <div class="title-block">
+      <div class="game-title">Connect 4</div>
+      <div class="game-subtitle">Strategy &middot; 4-in-a-Row &middot; <span id="diff-label">Easy</span></div>
+    </div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-label">Score</div>
+        <div class="score-val" id="score">0</div>
+      </div>
+      <div class="score-box">
+        <div class="score-label">Best</div>
+        <div class="score-val" id="best">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-wrap" id="board-wrap">
+    
+    <div class="overlay" id="screen-start">
+      <div class="overlay-emoji">🔵🔴</div>
+      <div class="overlay-title">Connect 4</div>
+      <div class="overlay-sub">Play as Cyan. Drop your pieces to connect 4 in a row before the AI!</div>
+      <button class="btn-play" id="btn-start">&#9654; Start Game</button>
+    </div>
+
+    <div class="overlay hidden" id="overlay-gameover">
+      <div class="overlay-emoji" id="end-emoji">🎉</div>
+      <div class="overlay-title" id="end-title"><em>You Won!</em></div>
+      <div class="result-stats" id="end-stats"></div>
+      <div class="overlay-sub" id="end-msg"></div>
+      <div class="overlay-btns" style="margin-top: 10px;">
+        <button class="btn-play" id="btn-restart">↺ Play Again</button>
+      </div>
+    </div>
+
+    <div id="game-content" style="display:none;width:100%;flex-direction:column;gap:14px;align-items:center;">
+      <div class="status-area">
+        <div class="status-text" id="status-text">Your Turn!</div>
+        <div class="turn-indicator turn-player" id="turn-indicator"></div>
+      </div>
+      <div class="c4-grid" id="c4-grid">
+        </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="difficulty-pills">
+      <button class="diff-pill active" data-diff="easy">Easy</button>
+      <button class="diff-pill" data-diff="medium">Medium</button>
+      <button class="diff-pill" data-diff="hard">Hard</button>
+    </div>
+    <div class="hint">Beat AI to score</div>
+  </div>
+</div>
+
+<script>
+/* ── CONFIG & STATE ── */
+const ROWS = 6;
+const COLS = 7;
+const POINTS = { easy: 20, medium: 50, hard: 100 };
+const PLAYER = 1;
+const AI = 2;
+
+let board = [];
+let difficulty = 'easy';
+let score = 0;
+let best = parseInt(localStorage.getItem('connect4-best') || '0');
+let gameActive = false;
+let isPlayerTurn = true;
+
+/* ── DOM ── */
+const scoreEl    = document.getElementById('score');
+const bestEl     = document.getElementById('best');
+const statusText = document.getElementById('status-text');
+const turnInd    = document.getElementById('turn-indicator');
+const grid       = document.getElementById('c4-grid');
+const gameContent= document.getElementById('game-content');
+const screenStart= document.getElementById('screen-start');
+const goOverlay  = document.getElementById('overlay-gameover');
+const boardWrap  = document.getElementById('board-wrap');
+const diffLabel  = document.getElementById('diff-label');
+const endEmoji   = document.getElementById('end-emoji');
+const endTitle   = document.getElementById('end-title');
+const endStats   = document.getElementById('end-stats');
+const endMsg     = document.getElementById('end-msg');
+
+function showDelta(val){
+  const d = document.createElement('div');
+  d.className = 'score-delta plus';
+  d.textContent = '+' + val;
+  boardWrap.appendChild(d);
+  d.addEventListener('animationend', () => d.remove());
+}
+
+/* ── BOARD SETUP ── */
+function initBoard() {
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  grid.innerHTML = '';
+  
+  // Create columns to make hovering easier
+  for (let c = 0; c < COLS; c++) {
+    const colDiv = document.createElement('div');
+    colDiv.className = 'cell-col';
+    colDiv.dataset.col = c;
+    colDiv.addEventListener('click', () => handleDrop(c));
+    
+    for (let r = 0; r < ROWS; r++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = `cell-${r}-${c}`;
+      colDiv.appendChild(cell);
+    }
+    grid.appendChild(colDiv);
+  }
+}
+
+function updateCell(r, c, player) {
+  const cell = document.getElementById(`cell-${r}-${c}`);
+  cell.className = `cell ${player === 1 ? 'p1' : 'p2'}`;
+}
+
+/* ── GAME LOGIC ── */
+function getValidLocation(b, col) {
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (b[r][col] === 0) return r;
+  }
+  return -1;
+}
+
+function getValidColumns(b) {
+  let valid = [];
+  for (let c = 0; c < COLS; c++) {
+    if (b[0][c] === 0) valid.push(c);
+  }
+  return valid;
+}
+
+function checkWin(b, piece) {
+  let combo = [];
+  // Horizontal
+  for (let c = 0; c < COLS - 3; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      if (b[r][c] === piece && b[r][c+1] === piece && b[r][c+2] === piece && b[r][c+3] === piece) {
+        return [[r,c], [r,c+1], [r,c+2], [r,c+3]];
+      }
+    }
+  }
+  // Vertical
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS - 3; r++) {
+      if (b[r][c] === piece && b[r+1][c] === piece && b[r+2][c] === piece && b[r+3][c] === piece) {
+        return [[r,c], [r+1,c], [r+2,c], [r+3,c]];
+      }
+    }
+  }
+  // Positive Diagonal
+  for (let c = 0; c < COLS - 3; c++) {
+    for (let r = 0; r < ROWS - 3; r++) {
+      if (b[r][c] === piece && b[r+1][c+1] === piece && b[r+2][c+2] === piece && b[r+3][c+3] === piece) {
+        return [[r,c], [r+1,c+1], [r+2,c+2], [r+3,c+3]];
+      }
+    }
+  }
+  // Negative Diagonal
+  for (let c = 0; c < COLS - 3; c++) {
+    for (let r = 3; r < ROWS; r++) {
+      if (b[r][c] === piece && b[r-1][c+1] === piece && b[r-2][c+2] === piece && b[r-3][c+3] === piece) {
+        return [[r,c], [r-1,c+1], [r-2,c+2], [r-3,c+3]];
+      }
+    }
+  }
+  return null;
+}
+
+function checkDraw(b) {
+  return getValidColumns(b).length === 0;
+}
+
+function handleDrop(col) {
+  if (!gameActive || !isPlayerTurn) return;
+  
+  const row = getValidLocation(board, col);
+  if (row === -1) return; // Column full
+
+  board[row][col] = PLAYER;
+  updateCell(row, col, PLAYER);
+  
+  const winCombo = checkWin(board, PLAYER);
+  if (winCombo) {
+    endGame('win', winCombo);
+  } else if (checkDraw(board)) {
+    endGame('draw');
+  } else {
+    isPlayerTurn = false;
+    statusText.textContent = "AI is thinking...";
+    turnInd.className = "turn-indicator turn-ai";
+    setTimeout(makeAIMove, 600);
+  }
+}
+
+/* ── AI LOGIC ── */
+function makeAIMove() {
+  if (!gameActive) return;
+  
+  let col;
+  if (difficulty === 'easy') {
+    const valid = getValidColumns(board);
+    col = valid[Math.floor(Math.random() * valid.length)];
+  } else {
+    const depth = difficulty === 'hard' ? 5 : 2;
+    col = minimax(board, depth, -Infinity, Infinity, true)[0];
+  }
+
+  // Failsafe
+  if (col === undefined || col === null) {
+    const valid = getValidColumns(board);
+    col = valid[Math.floor(Math.random() * valid.length)];
+  }
+
+  const row = getValidLocation(board, col);
+  board[row][col] = AI;
+  updateCell(row, col, AI);
+
+  const winCombo = checkWin(board, AI);
+  if (winCombo) {
+    endGame('lose', winCombo);
+  } else if (checkDraw(board)) {
+    endGame('draw');
+  } else {
+    isPlayerTurn = true;
+    statusText.textContent = "Your Turn!";
+    turnInd.className = "turn-indicator turn-player";
+  }
+}
+
+/* ── AI MINIMAX ALGORITHM ── */
+function evaluateWindow(window, piece) {
+  let score = 0;
+  const oppPiece = piece === PLAYER ? AI : PLAYER;
+  let count = 0;
+  let empty = 0;
+  let oppCount = 0;
+
+  for (let i=0; i<4; i++) {
+    if (window[i] === piece) count++;
+    else if (window[i] === 0) empty++;
+    else if (window[i] === oppPiece) oppCount++;
+  }
+
+  if (count === 4) score += 100;
+  else if (count === 3 && empty === 1) score += 5;
+  else if (count === 2 && empty === 2) score += 2;
+
+  if (oppCount === 3 && empty === 1) score -= 4;
+
+  return score;
+}
+
+function scorePosition(b, piece) {
+  let score = 0;
+  
+  // Center Preference
+  let centerArray = [];
+  for (let r = 0; r < ROWS; r++) centerArray.push(b[r][3]);
+  let centerCount = centerArray.filter(c => c === piece).length;
+  score += centerCount * 3;
+
+  // Horizontal
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS - 3; c++) {
+      let window = [b[r][c], b[r][c+1], b[r][c+2], b[r][c+3]];
+      score += evaluateWindow(window, piece);
+    }
+  }
+  // Vertical
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS - 3; r++) {
+      let window = [b[r][c], b[r+1][c], b[r+2][c], b[r+3][c]];
+      score += evaluateWindow(window, piece);
+    }
+  }
+  // Positive Diagonal
+  for (let r = 0; r < ROWS - 3; r++) {
+    for (let c = 0; c < COLS - 3; c++) {
+      let window = [b[r][c], b[r+1][c+1], b[r+2][c+2], b[r+3][c+3]];
+      score += evaluateWindow(window, piece);
+    }
+  }
+  // Negative Diagonal
+  for (let r = 0; r < ROWS - 3; r++) {
+    for (let c = 0; c < COLS - 3; c++) {
+      let window = [b[r+3][c], b[r+2][c+1], b[r+1][c+2], b[r][c+3]];
+      score += evaluateWindow(window, piece);
+    }
+  }
+  return score;
+}
+
+function isTerminalNode(b) {
+  return checkWin(b, PLAYER) || checkWin(b, AI) || getValidColumns(b).length === 0;
+}
+
+function minimax(b, depth, alpha, beta, isMaximizing) {
+  const validLocations = getValidColumns(b);
+  const isTerminal = isTerminalNode(b);
+  
+  if (depth === 0 || isTerminal) {
+    if (isTerminal) {
+      if (checkWin(b, AI)) return [null, 100000000];
+      else if (checkWin(b, PLAYER)) return [null, -100000000];
+      else return [null, 0]; // Draw
+    } else {
+      return [null, scorePosition(b, AI)];
+    }
+  }
+
+  if (isMaximizing) {
+    let value = -Infinity;
+    let bestCol = validLocations[Math.floor(Math.random() * validLocations.length)];
+    for (let col of validLocations) {
+      let row = getValidLocation(b, col);
+      let bCopy = b.map(arr => [...arr]);
+      bCopy[row][col] = AI;
+      let newScore = minimax(bCopy, depth - 1, alpha, beta, false)[1];
+      if (newScore > value) {
+        value = newScore;
+        bestCol = col;
+      }
+      alpha = Math.max(alpha, value);
+      if (alpha >= beta) break;
+    }
+    return [bestCol, value];
+  } else {
+    let value = Infinity;
+    let bestCol = validLocations[Math.floor(Math.random() * validLocations.length)];
+    for (let col of validLocations) {
+      let row = getValidLocation(b, col);
+      let bCopy = b.map(arr => [...arr]);
+      bCopy[row][col] = PLAYER;
+      let newScore = minimax(bCopy, depth - 1, alpha, beta, true)[1];
+      if (newScore < value) {
+        value = newScore;
+        bestCol = col;
+      }
+      beta = Math.min(beta, value);
+      if (alpha >= beta) break;
+    }
+    return [bestCol, value];
+  }
+}
+
+/* ── GAME END ── */
+function endGame(result, combo = null) {
+  gameActive = false;
+  statusText.textContent = "Game Over!";
+  turnInd.style.background = 'transparent';
+  turnInd.style.boxShadow = 'none';
+
+  if (combo) {
+    combo.forEach(([r, c]) => {
+      document.getElementById(`cell-${r}-${c}`).classList.add('win');
+    });
+  }
+
+  setTimeout(() => {
+    let pointsEarned = 0;
+    if (result === 'win') {
+      pointsEarned = POINTS[difficulty];
+      score += pointsEarned;
+      endEmoji.textContent = '🏆';
+      endTitle.innerHTML = '<em>You Won!</em>';
+      endMsg.textContent = 'Great placement! Ready for another round?';
+      showDelta(pointsEarned);
+    } else if (result === 'lose') {
+      score = 0;
+      endEmoji.textContent = '💀';
+      endTitle.innerHTML = '<span class="bad">You Lost!</span>';
+      endMsg.textContent = 'The AI outsmarted you. Try again!';
+    } else {
+      endEmoji.textContent = '🤝';
+      endTitle.innerHTML = '<em>It\'s a Draw!</em>';
+      endMsg.textContent = 'Board is full. Go again!';
+    }
+
+    if (score > best) { best = score; localStorage.setItem('connect4-best', best); }
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+
+    endStats.innerHTML = result === 'win' 
+      ? `<div class="stat-pill"><div class="stat-val">+${pointsEarned}</div><div class="stat-lbl">Points</div></div>` 
+      : '';
+
+    goOverlay.classList.remove('hidden');
+  }, 1000);
+}
+
+/* ── START GAME ── */
+function startGame() {
+  screenStart.classList.add('hidden');
+  goOverlay.classList.add('hidden');
+  gameContent.style.display = 'flex';
+
+  initBoard();
+  gameActive = true;
+  isPlayerTurn = true;
+  statusText.textContent = "Your Turn!";
+  turnInd.className = "turn-indicator turn-player";
+  
+  const capDiff = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  diffLabel.textContent = capDiff;
+}
+
+/* ── EVENT LISTENERS ── */
+document.querySelectorAll('.diff-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.diff-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    difficulty = pill.dataset.diff;
+    diffLabel.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+    score = 0;
+    scoreEl.textContent = score;
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+
+/* ── INIT ── */
+bestEl.textContent = best;
+</script>
+</body>
+</html>

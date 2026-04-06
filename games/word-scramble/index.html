@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Scramble — PlayHive</title>
+  <style>
+    /* ─── Reset & Base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0b1622;
+      --surface:     #162032;
+      --surface2:    #1e2f45;
+      --surface3:    #253a55;
+      --green:       #7ed321;
+      --green-dim:   #5fa018;
+      --green-glow:  rgba(126,211,33,0.22);
+      --orange:      #ff7b00;
+      --cyan:        #00d4ff;
+      --pink:        #ff4da6;
+      --yellow:      #ffd700;
+      --text:        #e8f4ff;
+      --dim:         #6a8caa;
+      --border:      rgba(255,255,255,0.07);
+      --radius-pill: 100px;
+      --tile-size:   clamp(44px, 7.5vw, 62px);
+      --card-radius: 22px;
+    }
+	
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,212,255,0.07) 0%, transparent 60%),
+        linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+      background-size: auto, 40px 40px, 40px 40px;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center; /* Vertically centers the game */
+      height: 100vh; /* Locks height to the viewport */
+      padding: 16px; /* Reduces padding so it fits better */
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ─── Animations ──────────────────────────────────────────────────── */
+    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
+    @keyframes popIn   { 0% { opacity:0; transform:scale(0.6); } 70% { transform:scale(1.08); } 100% { opacity:1; transform:scale(1); } }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(126,211,33,0); }
+      50%       { box-shadow: 0 0 22px 8px rgba(126,211,33,0.32); }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-9px); }
+      40%     { transform: translateX(9px); }
+      60%     { transform: translateX(-5px); }
+      80%     { transform: translateX(5px); }
+    }
+    @keyframes tileReveal {
+      from { opacity: 0; transform: translateY(-18px) rotateX(55deg); }
+      to   { opacity: 1; transform: translateY(0) rotateX(0deg); }
+    }
+    @keyframes emojiPop {
+      0%   { transform: scale(0) translateY(0); opacity: 1; }
+      55%  { transform: scale(1.5) translateY(-50px); opacity: 1; }
+      100% { transform: scale(0.7) translateY(-90px); opacity: 0; }
+    }
+    @keyframes timerPulse {
+      0%, 100% { color: var(--text); }
+      50%       { color: var(--orange); }
+    }
+    @keyframes cardFlash {
+      0%   { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @keyframes modalSlide {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes diffGlow {
+      0%, 100% { box-shadow: 0 0 0 0 var(--glow-color); }
+      50%       { box-shadow: 0 0 20px 5px var(--glow-color); }
+    }
+    @keyframes statCountUp {
+      from { transform: scale(0.7); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes floatBadge {
+      0%,100% { transform: translateY(0px); }
+      50%     { transform: translateY(-6px); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       SCREEN MANAGER
+    ═══════════════════════════════════════════════════════════════════ */
+    .screen { display: none; width: 100%; max-width: 760px; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       SHARED LOGO
+    ═══════════════════════════════════════════════════════════════════ */
+    .logo {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: clamp(28px, 6vw, 42px);
+      color: var(--text);
+      letter-spacing: 0.5px;
+      text-align: center;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .logo .accent { color: var(--green); }
+    .logo-sub {
+      font-size: 13px;
+      color: var(--dim);
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MAIN MENU
+    ═══════════════════════════════════════════════════════════════════ */
+    #screen-menu { gap: 0; }
+    #screen-menu .logo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: fadeUp 0.5s ease both;
+      margin-bottom: 36px;
+    }
+
+    .logo-icon {
+      font-size: 52px;
+      margin-bottom: 10px;
+      animation: floatBadge 3s ease-in-out infinite;
+      filter: drop-shadow(0 0 16px rgba(126,211,33,0.5));
+    }
+
+    .difficulty-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      width: 100%;
+      margin-bottom: 32px;
+      animation: fadeUp 0.5s 0.1s ease both;
+    }
+
+    @media (max-width: 520px) {
+      .difficulty-grid { grid-template-columns: 1fr; gap: 12px; }
+    }
+
+    .diff-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 26px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .diff-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 3px 3px 0 0;
+    }
+    .diff-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+    .diff-card:active { transform: translateY(-1px); }
+
+    .diff-card.easy   { --accent: var(--green);  --glow-color: rgba(126,211,33,0.2); }
+    .diff-card.medium { --accent: var(--orange); --glow-color: rgba(255,123,0,0.2); }
+    .diff-card.hard   { --accent: var(--pink);   --glow-color: rgba(255,77,166,0.2); }
+
+    .diff-card:hover { animation: diffGlow 1.5s ease-in-out infinite; }
+
+    .diff-emoji { font-size: 36px; line-height: 1; }
+    .diff-label {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 22px;
+      color: var(--accent);
+    }
+    .diff-desc {
+      font-size: 12.5px;
+      color: var(--dim);
+      text-align: center;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+    .diff-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .diff-pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--dim);
+      letter-spacing: 0.5px;
+    }
+
+    .menu-how {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 22px 24px;
+      animation: fadeUp 0.5s 0.2s ease both;
+    }
+    .menu-how h3 {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 17px;
+      color: var(--dim);
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+    .how-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .how-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--dim);
+      font-weight: 700;
+    }
+    .how-item .how-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--surface2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       GAME SCREEN – HEADER
+    ═══════════════════════════════════════════════════════════════════ */
+    .game-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      animation: fadeUp 0.45s ease both;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .back-btn {
+      width: 38px;
+      height: 38px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .back-btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.15); }
+
+    .game-title-small {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: clamp(18px, 4vw, 24px);
+      color: var(--text);
+    }
+    .game-title-small .accent { color: var(--green); }
+
+    .diff-badge {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .diff-badge.easy   { background: rgba(126,211,33,0.15); color: var(--green); border: 1px solid rgba(126,211,33,0.3); }
+    .diff-badge.medium { background: rgba(255,123,0,0.15);  color: var(--orange); border: 1px solid rgba(255,123,0,0.3); }
+    .diff-badge.hard   { background: rgba(255,77,166,0.15); color: var(--pink);   border: 1px solid rgba(255,77,166,0.3); }
+
+    .stats-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 5px 13px;
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .stat-pill .icon { font-size: 14px; }
+    .stat-pill .val  { color: var(--green); font-size: 16px; }
+    .stat-pill.streak .val { color: var(--orange); }
+    .stat-pill.solved  .val { color: var(--cyan); }
+
+    /* ─── Word Counter Bar ───────────────────────────────────────────── */
+	.word-counter {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px; /* Gives a nice, clean gap */
+      animation: fadeUp 0.45s 0.05s ease both;
+    }
+    .word-dots {
+      display: flex;
+      gap: 5px;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+    .word-dot {
+      flex: 1;
+      min-width: 0;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 20px;
+      transition: background 0.3s;
+    }
+    .word-dot.done    { background: var(--green); }
+    .word-dot.current { background: var(--cyan); animation: none; }
+    .word-dot.skipped { background: var(--orange); }
+    .word-counter-label {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 13px;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    /* ─── Main Card ──────────────────────────────────────────────────── */
+    .game-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: clamp(20px, 4vw, 36px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      animation: fadeUp 0.5s 0.1s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ─── Timer ──────────────────────────────────────────────────────── */
+    .timer-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      align-items: flex-end;
+    }
+    .timer-top {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .timer-label {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 14px;
+      color: var(--dim);
+      transition: color 0.3s;
+    }
+    .timer-label.urgent { animation: timerPulse 0.75s ease infinite; color: var(--orange); }
+    .timer-secs {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 22px;
+      color: var(--text);
+      min-width: 52px;
+      text-align: right;
+      transition: color 0.3s;
+    }
+    .timer-secs.urgent { color: var(--orange); }
+
+    .timer-track {
+      width: 100%;
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      border-radius: 20px;
+      transition: width 1s linear, background 0.5s;
+    }
+    .timer-bar.urgent { background: linear-gradient(90deg, var(--orange), var(--pink)); }
+
+    /* ─── Hint / Category ────────────────────────────────────────────── */
+    .word-hint {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 13px;
+      color: var(--dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 14px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ─── Scrambled Tiles ────────────────────────────────────────────── */
+    .tiles-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      min-height: calc(var(--tile-size) + 14px);
+      perspective: 500px;
+    }
+
+    .tile {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      background: var(--bg);
+      border: 2px solid rgba(126,211,33,0.6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fredoka One', sans-serif;
+      font-size: clamp(20px, 4vw, 30px);
+      color: var(--text);
+      text-transform: uppercase;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
+      opacity: 0;
+      animation: tileReveal 0.35s ease forwards;
+      position: relative;
+    }
+    .tile::after {
+      content: '';
+      position: absolute;
+      bottom: 4px; left: 50%;
+      transform: translateX(-50%);
+      width: 55%;
+      height: 3px;
+      background: var(--green);
+      border-radius: 2px;
+      opacity: 0.45;
+    }
+
+    /* ─── Input & Buttons ────────────────────────────────────────────── */
+    .input-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .guess-input {
+      flex: 1;
+      background: var(--bg);
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-pill);
+      padding: 13px 22px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      text-align: center;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .guess-input::placeholder { font-size: 13px; letter-spacing: 2px; color: var(--dim); font-weight: 600; }
+    .guess-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(126,211,33,0.14); }
+    .guess-input.shake { animation: shake 0.4s ease; }
+    .guess-input.correct-input { border-color: var(--green); box-shadow: 0 0 0 3px rgba(126,211,33,0.2); }
+
+    .btn {
+      font-family: 'Fredoka One', sans-serif;
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 13px 26px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover  { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+    .btn-primary {
+      background: var(--green);
+      color: #0b1622;
+      box-shadow: 0 4px 16px rgba(126,211,33,0.3);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 22px rgba(126,211,33,0.45); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--dim);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      font-size: 14px;
+      padding: 11px 18px;
+    }
+    .btn-ghost:hover { color: var(--pink); border-color: var(--pink); }
+
+    .btn-menu-cta {
+      background: var(--green);
+      color: #0b1622;
+      padding: 14px 42px;
+      font-size: 18px;
+      box-shadow: 0 4px 20px rgba(126,211,33,0.35);
+      animation: pulseGlow 2.5s ease-in-out infinite;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+      padding: 13px 26px;
+      font-size: 16px;
+    }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.2); background: var(--surface3); }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ─── Feedback ───────────────────────────────────────────────────── */
+    .feedback {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 18px;
+      min-height: 28px;
+      text-align: center;
+      transition: opacity 0.25s;
+    }
+    .feedback.correct { color: var(--green); }
+    .feedback.wrong   { color: var(--pink); }
+    .feedback.skip    { color: var(--orange); }
+
+    /* ─── Answer Reveal ──────────────────────────────────────────────── */
+    .answer-reveal {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 24px;
+      color: var(--orange);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-align: center;
+      animation: popIn 0.4s ease both;
+    }
+
+    /* ─── Correct Flash Overlay ──────────────────────────────────────── */
+    .correct-flash {
+      position: absolute;
+      inset: 0;
+      background: rgba(126,211,33,0.08);
+      border-radius: var(--card-radius);
+      pointer-events: none;
+      opacity: 0;
+    }
+    .correct-flash.active {
+      animation: cardFlash 1.2s ease forwards;
+    }
+
+    /* ─── Confetti Canvas ────────────────────────────────────────────── */
+    #confetti-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ─── Emoji Pop ──────────────────────────────────────────────────── */
+    .emoji-pop {
+      position: fixed;
+      font-size: 40px;
+      pointer-events: none;
+      z-index: 10000;
+      animation: emojiPop 1s ease forwards;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MODAL OVERLAY
+    ═══════════════════════════════════════════════════════════════════ */
+    #modal-overlay, #how-to-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(7,12,22,0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 8888;
+      padding: 20px;
+    }
+    #modal-overlay.open, #how-to-modal.open { display: flex; }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 26px;
+      padding: 26px 24px 22px; /* Slimmed down padding */
+      width: 100%;
+      max-width: 460px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px; /* Tightened the gap between elements */
+      animation: modalSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+      position: relative;
+    }
+
+    .modal-trophy {
+      font-size: 46px; /* Slightly smaller trophy */
+      filter: drop-shadow(0 0 20px rgba(255,215,0,0.5));
+      animation: floatBadge 3s ease-in-out infinite;
+    }
+
+    .modal-title {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 26px; /* Slightly smaller title */
+      color: var(--text);
+      text-align: center;
+      line-height: 1.1;
+    }
+    .modal-title span { color: var(--green); }
+
+    .modal-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      width: 100%;
+    }
+
+    .modal-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      animation: statCountUp 0.4s ease both;
+    }
+    .modal-stat:nth-child(1) { animation-delay: 0.1s; }
+    .modal-stat:nth-child(2) { animation-delay: 0.18s; }
+    .modal-stat:nth-child(3) { animation-delay: 0.26s; }
+    .modal-stat:nth-child(4) { animation-delay: 0.34s; }
+
+    .modal-stat-val {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 32px;
+      line-height: 1;
+    }
+    .modal-stat-val.green  { color: var(--green); }
+    .modal-stat-val.orange { color: var(--orange); }
+    .modal-stat-val.cyan   { color: var(--cyan); }
+    .modal-stat-val.pink   { color: var(--pink); }
+
+    .modal-stat-lbl {
+      font-size: 12px;
+      color: var(--dim);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+	.modal-grade {
+      text-align: center;
+      width: 100%;
+      margin: -4px 0 4px 0; /* Pulls it slightly closer to the stats */
+    }
+    .modal-grade-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--dim); /* Uses your dimmed text color so it looks like a note */
+      letter-spacing: 0.5px;
+    }
+    .modal-grade-text .grade-emoji { font-size: 20px; }
+
+    .modal-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 500px) {
+      .game-header  { flex-direction: column; align-items: flex-start; }
+      .stats-row    { width: 100%; }
+      .input-row    { flex-direction: column; }
+      .btn          { text-align: center; }
+      .modal-card   { padding: 28px 20px 24px; }
+    }
+	
+	/* ─── Minimal Short Screen Adjustments ─── */
+    @media (max-height: 750px) {
+      /* Eat up the largest empty vertical spaces first */
+      .logo-wrap { margin-bottom: 2vh; }
+      .difficulty-grid { margin-bottom: 2vh; }
+      .game-card { gap: 16px; } /* Slightly tighter gaps inside the card */
+    }
+
+    @media (max-height: 600px) {
+      /* Only shrink elements slightly as a last resort */
+      :root { --tile-size: clamp(40px, 6vw, 52px); } /* Very gentle tile shrink */
+      .diff-card { padding: 16px 14px 12px; gap: 8px; }
+      .diff-emoji { font-size: 28px; }
+      .game-header { margin-bottom: 12px; }
+      .game-card { padding: 16px; gap: 12px; }
+      .modal-card { padding: 24px 20px 20px; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Confetti Canvas -->
+<canvas id="confetti-canvas"></canvas>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div class="modal-card" id="modal-card">
+    <div class="modal-trophy" id="modal-trophy">🏆</div>
+    <div class="modal-title" id="modal-title">Round <span>Complete!</span></div>
+
+    <div class="modal-stats-grid">
+      <div class="modal-stat">
+        <div class="modal-stat-val green" id="modal-score">0</div>
+        <div class="modal-stat-lbl">Final Score</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val cyan" id="modal-solved">0</div>
+        <div class="modal-stat-lbl">Solved</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val orange" id="modal-streak">0</div>
+        <div class="modal-stat-lbl">Best Streak</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val pink" id="modal-accuracy">0%</div>
+        <div class="modal-stat-lbl">Accuracy</div>
+      </div>
+    </div>
+
+    <div class="modal-grade">
+      <div class="modal-grade-text" id="modal-grade-text">Great work!</div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-primary btn-menu-cta" id="modal-play-again" style="width:100%;text-align:center;animation:none;">
+        Play Again
+      </button>
+      <button class="btn btn-secondary" id="modal-change-diff" style="width:100%;text-align:center;">
+        Change Difficulty
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN MENU
+═══════════════════════════════════════════ -->
+<div class="screen active" id="screen-menu">
+  <div class="logo-wrap">
+    <div class="logo">Word <span class="accent">Scramble</span></div>
+  </div>
+
+  <div class="difficulty-grid">
+    <!-- Easy -->
+    <div class="diff-card easy" data-diff="easy">
+      <div class="diff-emoji">🌱</div>
+      <div class="diff-label">Easy</div>
+      <div class="diff-desc">Short words,<br>plenty of time</div>
+      <div class="diff-meta">
+        <div class="diff-pill">4–5 letters</div>
+        <div class="diff-pill">60 seconds</div>
+      </div>
+    </div>
+    <!-- Medium -->
+    <div class="diff-card medium" data-diff="medium">
+      <div class="diff-emoji">⚡</div>
+      <div class="diff-label">Medium</div>
+      <div class="diff-desc">Longer words,<br>balanced timer</div>
+      <div class="diff-meta">
+        <div class="diff-pill">6–7 letters</div>
+        <div class="diff-pill">45 seconds</div>
+      </div>
+    </div>
+    <!-- Hard -->
+    <div class="diff-card hard" data-diff="hard">
+      <div class="diff-emoji">🔥</div>
+      <div class="diff-label">Hard</div>
+      <div class="diff-desc">Big words,<br>tight timer</div>
+      <div class="diff-meta">
+        <div class="diff-pill">8+ letters</div>
+        <div class="diff-pill">30 seconds</div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="how-to-modal">
+  <div class="modal-card">
+    <div class="menu-how" style="background: transparent; border: none; padding: 0; animation: none;">
+      <h3 style="font-size: 20px; text-align: center; margin-bottom: 20px;">🎮 How to Play</h3>
+      <div class="how-list">
+        <div class="how-item">
+          <div class="how-icon">🔀</div>
+          <span>Unscramble the shuffled letters to find the hidden word</span>
+        </div>
+        <div class="how-item">
+          <div class="how-icon">⌨️</div>
+          <span>Type your answer and press <strong>Submit</strong> or hit <strong>Enter</strong></span>
+        </div>
+        <div class="how-item">
+          <div class="how-icon">⏱️</div>
+          <span>Race against the clock — faster answers score more points</span>
+        </div>
+        <div class="how-item">
+          <div class="how-icon">🔥</div>
+          <span>Build streaks by solving consecutive words correctly</span>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-secondary" id="btn-close-how-to" style="width: 100%; margin-top: 10px;">Got it!</button>
+  </div>
+</div>
+
+  <button class="btn btn-ghost" id="btn-how-to" style="margin-top: 10px;">How to Play❓</button>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     GAME SCREEN
+═══════════════════════════════════════════ -->
+<div class="screen" id="screen-game">
+
+  <!-- Header -->
+  <header class="game-header">
+    <div class="header-left">
+      <div class="back-btn" id="back-btn" title="Main Menu">←</div>
+      <div class="game-title-small">Word <span class="accent">Scramble</span></div>
+      <div class="diff-badge easy" id="diff-badge">Easy</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-pill">
+        <span class="icon">⭐</span>
+        <span class="val" id="stat-score">0</span>
+      </div>
+      <div class="stat-pill streak">
+        <span class="icon">🔥</span>
+        <span class="val" id="stat-streak">0</span>
+      </div>
+      <div class="stat-pill solved">
+        <span class="icon">✅</span>
+        <span class="val" id="stat-solved">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Word counter dots -->
+  <div class="word-counter">
+    <div class="word-dots" id="word-dots"></div>
+    <div class="word-counter-label" id="word-counter-label">1 / 10</div>
+  </div>
+
+  <!-- Game Card -->
+  <main class="game-card" id="game-card">
+    <div class="correct-flash" id="correct-flash"></div>
+
+    <!-- Timer -->
+    <div class="timer-wrap">
+      <div class="timer-top">
+        <div class="timer-label" id="timer-label">⏱ Time</div>
+        <div class="timer-secs" id="timer-secs">60</div>
+      </div>
+      <div class="timer-track">
+        <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+      </div>
+    </div>
+
+    <!-- Category hint -->
+    <div class="word-hint" id="word-hint">Category: Animals</div>
+
+    <!-- Scrambled Tiles -->
+    <div class="tiles-wrap" id="tiles-wrap"></div>
+
+    <!-- Feedback -->
+    <div class="feedback" id="feedback"></div>
+
+    <!-- Input Row -->
+    <div class="input-row">
+      <input
+        class="guess-input"
+        id="guess-input"
+        type="text"
+        placeholder="TYPE YOUR ANSWER"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        maxlength="20"
+      />
+      <button class="btn btn-primary" id="submit-btn">Submit</button>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row">
+      <button class="btn btn-ghost" id="skip-btn">⏭ Skip Word</button>
+    </div>
+  </main>
+
+</div>
+
+<!-- ─── JavaScript ──────────────────────────────────────────────────── -->
+<script>
+/* ════════════════════════════════════════════════════════════════
+    WORD LISTS (difficulty-bucketed by letter count)
+    Easy: 4-5 letters | Medium: 6-7 letters | Hard: 8+ letters
+════════════════════════════════════════════════════════════════ */
+const WORD_BANK = {
+  easy: [
+    // — Animals —
+    { word: 'TIGER', cat: 'Animals' },
+    { word: 'SHARK', cat: 'Animals' },
+    { word: 'CRANE', cat: 'Animals' },
+    { word: 'SNAIL', cat: 'Animals' },
+    { word: 'EAGLE', cat: 'Animals' },
+    { word: 'ZEBRA', cat: 'Animals' },
+    { word: 'WHALE', cat: 'Animals' },
+    { word: 'VIPER', cat: 'Animals' },
+    { word: 'LLAMA', cat: 'Animals' },
+    { word: 'BISON', cat: 'Animals' },
+    { word: 'BEAR', cat: 'Animals' },
+    { word: 'LION', cat: 'Animals' },
+    { word: 'FROG', cat: 'Animals' },
+    { word: 'DUCK', cat: 'Animals' },
+    { word: 'CRAB', cat: 'Animals' },
+    { word: 'WOLF', cat: 'Animals' },
+    { word: 'DEER', cat: 'Animals' },
+    { word: 'DOVE', cat: 'Animals' },
+    { word: 'MOLE', cat: 'Animals' },
+    { word: 'MOTH', cat: 'Animals' },
+    { word: 'CROW', cat: 'Animals' },
+    { word: 'SWAN', cat: 'Animals' },
+    { word: 'WORM', cat: 'Animals' },
+    { word: 'WASP', cat: 'Animals' },
+    { word: 'GOAT', cat: 'Animals' },
+    { word: 'MULE', cat: 'Animals' },
+    { word: 'NEWT', cat: 'Animals' },
+    { word: 'PONY', cat: 'Animals' },
+    { word: 'TOAD', cat: 'Animals' },
+    { word: 'IBIS', cat: 'Animals' },
+    { word: 'LYNX', cat: 'Animals' },
+    { word: 'PUMA', cat: 'Animals' },
+    { word: 'SLUG', cat: 'Animals' },
+    { word: 'MOOSE', cat: 'Animals' },
+    { word: 'OTTER', cat: 'Animals' },
+    { word: 'ROBIN', cat: 'Animals' },
+    { word: 'QUAIL', cat: 'Animals' },
+    { word: 'RAVEN', cat: 'Animals' },
+    { word: 'SKUNK', cat: 'Animals' },
+    { word: 'SQUID', cat: 'Animals' },
+    { word: 'STORK', cat: 'Animals' },
+    { word: 'TAPIR', cat: 'Animals' },
+    { word: 'TROUT', cat: 'Animals' },
+    { word: 'FINCH', cat: 'Animals' },
+    { word: 'GECKO', cat: 'Animals' },
+    { word: 'KOALA', cat: 'Animals' },
+    { word: 'HYENA', cat: 'Animals' },
+    { word: 'HERON', cat: 'Animals' },
+    { word: 'CHIMP', cat: 'Animals' },
+    { word: 'BREAM', cat: 'Animals' },
+    // — Nature —
+    { word: 'MAPLE', cat: 'Nature' },
+    { word: 'CLOUD', cat: 'Nature' },
+    { word: 'STORM', cat: 'Nature' },
+    { word: 'FLAME', cat: 'Nature' },
+    { word: 'STONE', cat: 'Nature' },
+    { word: 'PLANT', cat: 'Nature' },
+    { word: 'FROST', cat: 'Nature' },
+    { word: 'CREEK', cat: 'Nature' },
+    { word: 'LEAF', cat: 'Nature' },
+    { word: 'SEED', cat: 'Nature' },
+    { word: 'MOSS', cat: 'Nature' },
+    { word: 'CAVE', cat: 'Nature' },
+    { word: 'DUNE', cat: 'Nature' },
+    { word: 'GUST', cat: 'Nature' },
+    { word: 'HAIL', cat: 'Nature' },
+    { word: 'POND', cat: 'Nature' },
+    { word: 'RAIN', cat: 'Nature' },
+    { word: 'REEF', cat: 'Nature' },
+    { word: 'SNOW', cat: 'Nature' },
+    { word: 'TIDE', cat: 'Nature' },
+    { word: 'WAVE', cat: 'Nature' },
+    { word: 'BUSH', cat: 'Nature' },
+    { word: 'CLIFF', cat: 'Nature' },
+    { word: 'CORAL', cat: 'Nature' },
+    { word: 'DELTA', cat: 'Nature' },
+    { word: 'FIELD', cat: 'Nature' },
+    { word: 'FJORD', cat: 'Nature' },
+    { word: 'FLINT', cat: 'Nature' },
+    { word: 'GROVE', cat: 'Nature' },
+    { word: 'HEDGE', cat: 'Nature' },
+    { word: 'MARSH', cat: 'Nature' },
+    { word: 'PETAL', cat: 'Nature' },
+    { word: 'RIVER', cat: 'Nature' },
+    { word: 'SHORE', cat: 'Nature' },
+    { word: 'TRAIL', cat: 'Nature' },
+    { word: 'TULIP', cat: 'Nature' },
+    { word: 'BROOK', cat: 'Nature' },
+    { word: 'DAISY', cat: 'Nature' },
+    { word: 'TRUNK', cat: 'Nature' },
+    { word: 'ACORN', cat: 'Nature' },
+    // — Food —
+    { word: 'GRAPE', cat: 'Food' },
+    { word: 'LEMON', cat: 'Food' },
+    { word: 'PIZZA', cat: 'Food' },
+    { word: 'BREAD', cat: 'Food' },
+    { word: 'MANGO', cat: 'Food' },
+    { word: 'OLIVE', cat: 'Food' },
+    { word: 'PEACH', cat: 'Food' },
+    { word: 'CAKE', cat: 'Food' },
+    { word: 'CORN', cat: 'Food' },
+    { word: 'FISH', cat: 'Food' },
+    { word: 'LIME', cat: 'Food' },
+    { word: 'MILK', cat: 'Food' },
+    { word: 'MINT', cat: 'Food' },
+    { word: 'PLUM', cat: 'Food' },
+    { word: 'RICE', cat: 'Food' },
+    { word: 'TACO', cat: 'Food' },
+    { word: 'APPLE', cat: 'Food' },
+    { word: 'BAGEL', cat: 'Food' },
+    { word: 'CANDY', cat: 'Food' },
+    { word: 'CREAM', cat: 'Food' },
+    { word: 'DONUT', cat: 'Food' },
+    { word: 'FUDGE', cat: 'Food' },
+    { word: 'JELLY', cat: 'Food' },
+    { word: 'JUICY', cat: 'Food' },
+    { word: 'PASTA', cat: 'Food' },
+    { word: 'SALSA', cat: 'Food' },
+    { word: 'SAUCE', cat: 'Food' },
+    { word: 'SYRUP', cat: 'Food' },
+    { word: 'TOAST', cat: 'Food' },
+    { word: 'WAFER', cat: 'Food' },
+    { word: 'WAFFLE', cat: 'Food' },
+    { word: 'BERRY', cat: 'Food' },
+    { word: 'MELON', cat: 'Food' },
+    { word: 'ONION', cat: 'Food' },
+    { word: 'PEAR', cat: 'Food' },
+    { word: 'BEET', cat: 'Food' },
+    { word: 'BASIL', cat: 'Food' },
+    // — Space —
+    { word: 'COMET', cat: 'Space' },
+    { word: 'ORBIT', cat: 'Space' },
+    { word: 'MOON', cat: 'Space' },
+    { word: 'STAR', cat: 'Space' },
+    { word: 'MARS', cat: 'Space' },
+    { word: 'VENUS', cat: 'Space' },
+    { word: 'SOLAR', cat: 'Space' },
+    { word: 'NOVA', cat: 'Space' },
+    // — Games / Toys —
+    { word: 'CHESS', cat: 'Games' },
+    { word: 'KITE', cat: 'Toys' },
+    { word: 'BLOCK', cat: 'Toys' },
+    { word: 'DOLL', cat: 'Toys' },
+    { word: 'DRUM', cat: 'Toys' },
+    { word: 'SLIDE', cat: 'Games' },
+    { word: 'SWING', cat: 'Games' },
+    // — Music —
+    { word: 'PIANO', cat: 'Music' },
+    { word: 'FLUTE', cat: 'Music' },
+    { word: 'CHORD', cat: 'Music' },
+    { word: 'TEMPO', cat: 'Music' },
+    { word: 'VIOLA', cat: 'Music' },
+    // — Art —
+    { word: 'BRUSH', cat: 'Art' },
+    { word: 'EASEL', cat: 'Art' },
+    { word: 'PAINT', cat: 'Art' },
+    { word: 'CRAFT', cat: 'Art' },
+    { word: 'CHALK', cat: 'Art' },
+    // — School —
+    { word: 'CHAIR', cat: 'School' },
+    { word: 'CLASS', cat: 'School' },
+    { word: 'CLOCK', cat: 'School' },
+    { word: 'GLOBE', cat: 'School' },
+    { word: 'RULER', cat: 'School' },
+    { word: 'PAPER', cat: 'School' },
+    { word: 'GRADE', cat: 'School' },
+    // — Sports —
+    { word: 'SPORT', cat: 'Sports' },
+    { word: 'TRACK', cat: 'Sports' },
+    { word: 'RELAY', cat: 'Sports' },
+    { word: 'SCORE', cat: 'Sports' },
+    { word: 'SERVE', cat: 'Sports' },
+    { word: 'VAULT', cat: 'Sports' },
+    // — Home / Places —
+    { word: 'HOUSE', cat: 'Places' },
+    { word: 'CABIN', cat: 'Places' },
+    { word: 'TOWER', cat: 'Places' },
+    { word: 'PLAZA', cat: 'Places' },
+    { word: 'WHARF', cat: 'Places' },
+    { word: 'ARENA', cat: 'Places' },
+    { word: 'BENCH', cat: 'Places' },
+    { word: 'BARN', cat: 'Places' },
+    { word: 'PARK', cat: 'Places' },
+    { word: 'FARM', cat: 'Places' },
+    // — Body —
+    { word: 'ELBOW', cat: 'Body' },
+    { word: 'HEART', cat: 'Body' },
+    { word: 'THUMB', cat: 'Body' },
+    { word: 'SPINE', cat: 'Body' },
+    { word: 'ANKLE', cat: 'Body' },
+    { word: 'CHEEK', cat: 'Body' },
+    { word: 'WRIST', cat: 'Body' },
+    { word: 'KNEE', cat: 'Body' },
+    // — Clothes —
+    { word: 'BOOTS', cat: 'Clothes' },
+    { word: 'CLOAK', cat: 'Clothes' },
+    { word: 'GLOVE', cat: 'Clothes' },
+    { word: 'JEANS', cat: 'Clothes' },
+    { word: 'SCARF', cat: 'Clothes' },
+    { word: 'SKIRT', cat: 'Clothes' },
+    { word: 'SOCKS', cat: 'Clothes' },
+    { word: 'VEST', cat: 'Clothes' },
+    // — Transport —
+    { word: 'BIKE', cat: 'Transport' },
+    { word: 'BOAT', cat: 'Transport' },
+    { word: 'BLIMP', cat: 'Transport' },
+    { word: 'CANOE', cat: 'Transport' },
+    { word: 'KAYAK', cat: 'Transport' },
+    { word: 'PLANE', cat: 'Transport' },
+    { word: 'TRAIN', cat: 'Transport' },
+    { word: 'TRUCK', cat: 'Transport' },
+    { word: 'YACHT', cat: 'Transport' },
+    // — Colors —
+    { word: 'AMBER', cat: 'Colors' },
+    { word: 'AZURE', cat: 'Colors' },
+    { word: 'BEIGE', cat: 'Colors' },
+    { word: 'BLACK', cat: 'Colors' },
+    { word: 'IVORY', cat: 'Colors' },
+    { word: 'KHAKI', cat: 'Colors' },
+    { word: 'LILAC', cat: 'Colors' },
+    { word: 'MAUVE', cat: 'Colors' },
+  ],
+  medium: [
+    // — School —
+    { word: 'PENCIL', cat: 'School' },
+    { word: 'ERASER', cat: 'School' },
+    { word: 'LESSON', cat: 'School' },
+    { word: 'READER', cat: 'School' },
+    { word: 'MARKER', cat: 'School' },
+    { word: 'BINDER', cat: 'School' },
+    { word: 'REPORT', cat: 'School' },
+    { word: 'STAPLE', cat: 'School' },
+    { word: 'SCIENCE', cat: 'School' },
+    { word: 'LIBRARY', cat: 'School' },
+    { word: 'STUDENT', cat: 'School' },
+    { word: 'TEACHER', cat: 'School' },
+    // — Space —
+    { word: 'ROCKET', cat: 'Space' },
+    { word: 'SATURN', cat: 'Space' },
+    { word: 'GALAXY', cat: 'Space' },
+    { word: 'ECLIPSE', cat: 'Space' },
+    { word: 'COSMOS', cat: 'Space' },
+    { word: 'NEBULA', cat: 'Space' },
+    { word: 'PULSAR', cat: 'Space' },
+    { word: 'QUASAR', cat: 'Space' },
+    { word: 'METEOR', cat: 'Space' },
+    { word: 'PLANET', cat: 'Space' },
+    { word: 'SHUTTLE', cat: 'Space' },
+    { word: 'JUPITER', cat: 'Space' },
+    { word: 'NEPTUNE', cat: 'Space' },
+    { word: 'MERCURY', cat: 'Space' },
+    { word: 'URANUS', cat: 'Space' },
+    // — Sports —
+    { word: 'SOCCER', cat: 'Sports' },
+    { word: 'TENNIS', cat: 'Sports' },
+    { word: 'HOCKEY', cat: 'Sports' },
+    { word: 'FRISBEE', cat: 'Sports' },
+    { word: 'BOXING', cat: 'Sports' },
+    { word: 'RACING', cat: 'Sports' },
+    { word: 'ROWING', cat: 'Sports' },
+    { word: 'SKIING', cat: 'Sports' },
+    { word: 'SURFING', cat: 'Sports' },
+    { word: 'BIKING', cat: 'Sports' },
+    { word: 'DIVING', cat: 'Sports' },
+    { word: 'FENCING', cat: 'Sports' },
+    { word: 'HURDLE', cat: 'Sports' },
+    { word: 'JUMPER', cat: 'Sports' },
+    { word: 'KARATE', cat: 'Sports' },
+    { word: 'LACROSSE', cat: 'Sports' },
+    { word: 'TACKLE', cat: 'Sports' },
+    { word: 'SPRINT', cat: 'Sports' },
+    { word: 'TROPHY', cat: 'Sports' },
+    { word: 'UMPIRE', cat: 'Sports' },
+    // — Nature —
+    { word: 'RAINBOW', cat: 'Nature' },
+    { word: 'THUNDER', cat: 'Nature' },
+    { word: 'BLOSSOM', cat: 'Nature' },
+    { word: 'VOLCANO', cat: 'Nature' },
+    { word: 'GLACIER', cat: 'Nature' },
+    { word: 'TORNADO', cat: 'Nature' },
+    { word: 'MEADOW', cat: 'Nature' },
+    { word: 'CANYON', cat: 'Nature' },
+    { word: 'DESERT', cat: 'Nature' },
+    { word: 'FOREST', cat: 'Nature' },
+    { word: 'GEYSER', cat: 'Nature' },
+    { word: 'ISLAND', cat: 'Nature' },
+    { word: 'JUNGLE', cat: 'Nature' },
+    { word: 'LAGOON', cat: 'Nature' },
+    { word: 'PEBBLE', cat: 'Nature' },
+    { word: 'RAPIDS', cat: 'Nature' },
+    { word: 'RIPPLE', cat: 'Nature' },
+    { word: 'SUMMIT', cat: 'Nature' },
+    { word: 'SWAMPY', cat: 'Nature' },
+    { word: 'TUNDRA', cat: 'Nature' },
+    { word: 'VALLEY', cat: 'Nature' },
+    { word: 'BREEZE', cat: 'Nature' },
+    { word: 'SPROUT', cat: 'Nature' },
+    { word: 'POLLEN', cat: 'Nature' },
+    { word: 'GRAVEL', cat: 'Nature' },
+    { word: 'CANOPY', cat: 'Nature' },
+    { word: 'CAVERN', cat: 'Nature' },
+    { word: 'FOSSIL', cat: 'Nature' },
+    { word: 'CLOVER', cat: 'Nature' },
+    // — Animals —
+    { word: 'DOLPHIN', cat: 'Animals' },
+    { word: 'PENGUIN', cat: 'Animals' },
+    { word: 'GIRAFFE', cat: 'Animals' },
+    { word: 'HAMSTER', cat: 'Animals' },
+    { word: 'PANTHER', cat: 'Animals' },
+    { word: 'LEOPARD', cat: 'Animals' },
+    { word: 'OCTOPUS', cat: 'Animals' },
+    { word: 'CHEETAH', cat: 'Animals' },
+    { word: 'BADGER', cat: 'Animals' },
+    { word: 'BEAGLE', cat: 'Animals' },
+    { word: 'BEAVER', cat: 'Animals' },
+    { word: 'CONDOR', cat: 'Animals' },
+    { word: 'DONKEY', cat: 'Animals' },
+    { word: 'FALCON', cat: 'Animals' },
+    { word: 'FERRET', cat: 'Animals' },
+    { word: 'GIBBON', cat: 'Animals' },
+    { word: 'GOBLIN', cat: 'Animals' },
+    { word: 'IGUANA', cat: 'Animals' },
+    { word: 'JAGUAR', cat: 'Animals' },
+    { word: 'LIZARD', cat: 'Animals' },
+    { word: 'MAGPIE', cat: 'Animals' },
+    { word: 'MARMOT', cat: 'Animals' },
+    { word: 'MINNOW', cat: 'Animals' },
+    { word: 'MONKEY', cat: 'Animals' },
+    { word: 'PARROT', cat: 'Animals' },
+    { word: 'PIGEON', cat: 'Animals' },
+    { word: 'RABBIT', cat: 'Animals' },
+    { word: 'SALMON', cat: 'Animals' },
+    { word: 'TOUCAN', cat: 'Animals' },
+    { word: 'TURKEY', cat: 'Animals' },
+    { word: 'WALRUS', cat: 'Animals' },
+    { word: 'WEASEL', cat: 'Animals' },
+    { word: 'COYOTE', cat: 'Animals' },
+    { word: 'PELICAN', cat: 'Animals' },
+    { word: 'PUFFIN', cat: 'Animals' },
+    { word: 'MEERKAT', cat: 'Animals' },
+    { word: 'SEAHORSE', cat: 'Animals' },
+    { word: 'FIREFLY', cat: 'Animals' },
+    { word: 'CRICKET', cat: 'Animals' },
+    { word: 'GORILLA', cat: 'Animals' },
+    // — Food —
+    { word: 'PANCAKE', cat: 'Food' },
+    { word: 'NOODLES', cat: 'Food' },
+    { word: 'POPCORN', cat: 'Food' },
+    { word: 'AVOCADO', cat: 'Food' },
+    { word: 'PRETZEL', cat: 'Food' },
+    { word: 'BROWNIE', cat: 'Food' },
+    { word: 'BISCUIT', cat: 'Food' },
+    { word: 'BURRITO', cat: 'Food' },
+    { word: 'CARROT', cat: 'Food' },
+    { word: 'CEREAL', cat: 'Food' },
+    { word: 'CHERRY', cat: 'Food' },
+    { word: 'COOKIE', cat: 'Food' },
+    { word: 'COTTON', cat: 'Food' },
+    { word: 'CRUMBLE', cat: 'Food' },
+    { word: 'CUPCAKE', cat: 'Food' },
+    { word: 'ÉCLAIR', cat: 'Food' },
+    { word: 'FONDUE', cat: 'Food' },
+    { word: 'HOTDOG', cat: 'Food' },
+    { word: 'HUMMUS', cat: 'Food' },
+    { word: 'KETCHUP', cat: 'Food' },
+    { word: 'MUFFIN', cat: 'Food' },
+    { word: 'NACHO', cat: 'Food' },
+    { word: 'NOUGAT', cat: 'Food' },
+    { word: 'OMELET', cat: 'Food' },
+    { word: 'ORANGE', cat: 'Food' },
+    { word: 'PICKLE', cat: 'Food' },
+    { word: 'RADISH', cat: 'Food' },
+    { word: 'RAISIN', cat: 'Food' },
+    { word: 'SCONE', cat: 'Food' },
+    { word: 'SORBET', cat: 'Food' },
+    { word: 'SUNDAE', cat: 'Food' },
+    { word: 'TOFFEE', cat: 'Food' },
+    { word: 'TURNIP', cat: 'Food' },
+    { word: 'WALNUT', cat: 'Food' },
+    { word: 'YOGURT', cat: 'Food' },
+    { word: 'ALMOND', cat: 'Food' },
+    { word: 'BANANA', cat: 'Food' },
+    { word: 'CASHEW', cat: 'Food' },
+    { word: 'GARLIC', cat: 'Food' },
+    { word: 'GINGER', cat: 'Food' },
+    { word: 'LYCHEE', cat: 'Food' },
+    { word: 'PAPAYA', cat: 'Food' },
+    { word: 'PEPPER', cat: 'Food' },
+    { word: 'POTATO', cat: 'Food' },
+    { word: 'PUMPKIN', cat: 'Food' },
+    { word: 'QUINOA', cat: 'Food' },
+    { word: 'SQUASH', cat: 'Food' },
+    { word: 'TOMATO', cat: 'Food' },
+    // — Music —
+    { word: 'VIOLIN', cat: 'Music' },
+    { word: 'GUITAR', cat: 'Music' },
+    { word: 'LYRICS', cat: 'Music' },
+    { word: 'MELODY', cat: 'Music' },
+    { word: 'RHYTHM', cat: 'Music' },
+    { word: 'SINGER', cat: 'Music' },
+    { word: 'TREBLE', cat: 'Music' },
+    { word: 'UKULELE', cat: 'Music' },
+    { word: 'CHORUS', cat: 'Music' },
+    { word: 'SONATA', cat: 'Music' },
+    // — Art —
+    { word: 'CANVAS', cat: 'Art' },
+    { word: 'MOSAIC', cat: 'Art' },
+    { word: 'PASTEL', cat: 'Art' },
+    { word: 'SKETCH', cat: 'Art' },
+    { word: 'STATUE', cat: 'Art' },
+    { word: 'STUDIO', cat: 'Art' },
+    { word: 'MURALS', cat: 'Art' },
+    { word: 'COLLAGE', cat: 'Art' },
+    { word: 'PALETTE', cat: 'Art' },
+    { word: 'DRAWING', cat: 'Art' },
+    // — Toys & Games —
+    { word: 'CASTLE', cat: 'Games' },
+    { word: 'JIGSAW', cat: 'Games' },
+    { word: 'MARBLE', cat: 'Games' },
+    { word: 'PUZZLE', cat: 'Games' },
+    { word: 'DOMINO', cat: 'Games' },
+    { word: 'PINBALL', cat: 'Games' },
+    // — Transport —
+    { word: 'SCOOTER', cat: 'Transport' },
+    { word: 'TRACTOR', cat: 'Transport' },
+    { word: 'TUGBOAT', cat: 'Transport' },
+    { word: 'SUBWAY', cat: 'Transport' },
+    { word: 'CAMPER', cat: 'Transport' },
+    { word: 'GLIDER', cat: 'Transport' },
+    { word: 'TANKER', cat: 'Transport' },
+    { word: 'VESSEL', cat: 'Transport' },
+    { word: 'CARAVAN', cat: 'Transport' },
+    // — Places —
+    { word: 'HARBOR', cat: 'Places' },
+    { word: 'MUSEUM', cat: 'Places' },
+    { word: 'TEMPLE', cat: 'Places' },
+    { word: 'MARKET', cat: 'Places' },
+    { word: 'PALACE', cat: 'Places' },
+    { word: 'CINEMA', cat: 'Places' },
+    { word: 'GARDEN', cat: 'Places' },
+    { word: 'SCHOOL', cat: 'Places' },
+    { word: 'BAKERY', cat: 'Places' },
+    { word: 'BRIDGE', cat: 'Places' },
+    { word: 'CHURCH', cat: 'Places' },
+    { word: 'CLINIC', cat: 'Places' },
+    // — Feelings —
+    { word: 'CHEERY', cat: 'Feelings' },
+    { word: 'JOYFUL', cat: 'Feelings' },
+    { word: 'KINDLY', cat: 'Feelings' },
+    { word: 'LIVELY', cat: 'Feelings' },
+    { word: 'LOVING', cat: 'Feelings' },
+    { word: 'PLAYFUL', cat: 'Feelings' },
+    { word: 'GENTLE', cat: 'Feelings' },
+    { word: 'GRUMPY', cat: 'Feelings' },
+    { word: 'SLEEPY', cat: 'Feelings' },
+    // — Science —
+    { word: 'MAGNET', cat: 'Science' },
+    { word: 'MIRROR', cat: 'Science' },
+    { word: 'OXYGEN', cat: 'Science' },
+    { word: 'PHOTON', cat: 'Science' },
+    { word: 'PRISM', cat: 'Science' },
+    { word: 'PROTON', cat: 'Science' },
+    { word: 'STATIC', cat: 'Science' },
+    { word: 'VAPOR', cat: 'Science' },
+    { word: 'LIQUID', cat: 'Science' },
+    { word: 'CARBON', cat: 'Science' },
+    { word: 'ENERGY', cat: 'Science' },
+    { word: 'FUNGUS', cat: 'Science' },
+    { word: 'HELIUM', cat: 'Science' },
+    { word: 'INSECT', cat: 'Science' },
+    { word: 'LARVAE', cat: 'Science' },
+    // — Magic / Fantasy —
+    { word: 'DRAGON', cat: 'Fantasy' },
+    { word: 'KNIGHT', cat: 'Fantasy' },
+    { word: 'POTION', cat: 'Fantasy' },
+    { word: 'SPRITE', cat: 'Fantasy' },
+    { word: 'WIZARD', cat: 'Fantasy' },
+    { word: 'FAERIE', cat: 'Fantasy' },
+    { word: 'MERMAID', cat: 'Fantasy' },
+    { word: 'PHOENIX', cat: 'Fantasy' },
+    { word: 'UNICORN', cat: 'Fantasy' },
+    // — Clothes —
+    { word: 'BONNET', cat: 'Clothes' },
+    { word: 'HOODIE', cat: 'Clothes' },
+    { word: 'MITTEN', cat: 'Clothes' },
+    { word: 'SANDAL', cat: 'Clothes' },
+    { word: 'SHORTS', cat: 'Clothes' },
+    { word: 'SLEEVE', cat: 'Clothes' },
+    { word: 'SNEAKER', cat: 'Clothes' },
+    { word: 'SWEATER', cat: 'Clothes' },
+    { word: 'BLOUSE', cat: 'Clothes' },
+    { word: 'COLLAR', cat: 'Clothes' },
+  ],
+  hard: [
+    // — Animals —
+    { word: 'ELEPHANT', cat: 'Animals' },
+    { word: 'FLAMINGO', cat: 'Animals' },
+    { word: 'PORCUPINE', cat: 'Animals' },
+    { word: 'CROCODILE', cat: 'Animals' },
+    { word: 'CHAMELEON', cat: 'Animals' },
+    { word: 'JELLYFISH', cat: 'Animals' },
+    { word: 'BUTTERFLY', cat: 'Animals' },
+    { word: 'ALBATROSS', cat: 'Animals' },
+    { word: 'ALLIGATOR', cat: 'Animals' },
+    { word: 'ARMADILLO', cat: 'Animals' },
+    { word: 'BARRACUDA', cat: 'Animals' },
+    { word: 'BUMBLEBEE', cat: 'Animals' },
+    { word: 'CAPYBARA', cat: 'Animals' },
+    { word: 'CENTIPEDE', cat: 'Animals' },
+    { word: 'CHIPMUNK', cat: 'Animals' },
+    { word: 'DRAGONFLY', cat: 'Animals' },
+    { word: 'EARTHWORM', cat: 'Animals' },
+    { word: 'HEDGEHOG', cat: 'Animals' },
+    { word: 'HONEYBEE', cat: 'Animals' },
+    { word: 'KANGAROO', cat: 'Animals' },
+    { word: 'LADYBUG', cat: 'Animals' },
+    { word: 'MANATEE', cat: 'Animals' },
+    { word: 'MONGOOSE', cat: 'Animals' },
+    { word: 'NARWHAL', cat: 'Animals' },
+    { word: 'PARAKEET', cat: 'Animals' },
+    { word: 'PLATYPUS', cat: 'Animals' },
+    { word: 'SCORPION', cat: 'Animals' },
+    { word: 'SQUIRREL', cat: 'Animals' },
+    { word: 'STARFISH', cat: 'Animals' },
+    { word: 'STINGRAY', cat: 'Animals' },
+    { word: 'TORTOISE', cat: 'Animals' },
+    { word: 'TARANTULA', cat: 'Animals' },
+    { word: 'WARTHOG', cat: 'Animals' },
+    { word: 'WOLVERINE', cat: 'Animals' },
+    { word: 'WOODPECKER', cat: 'Animals' },
+    { word: 'ORANGUTAN', cat: 'Animals' },
+    { word: 'BULLFROG', cat: 'Animals' },
+    { word: 'CARIBOU', cat: 'Animals' },
+    { word: 'COCKATOO', cat: 'Animals' },
+    { word: 'CUTTLEFISH', cat: 'Animals' },
+    { word: 'BACKPACK', cat: 'School' },
+    { word: 'TRAMPOLINE', cat: 'Sports' },
+    { word: 'TELESCOPE', cat: 'Science' },
+    { word: 'ASTRONAUT', cat: 'Space' },
+    { word: 'CHOCOLATE', cat: 'Food' },
+    { word: 'CINNAMON', cat: 'Food' },
+    { word: 'HURRICANE', cat: 'Nature' },
+    { word: 'WATERFALL', cat: 'Nature' },
+    { word: 'ADVENTURE', cat: 'Activity' },
+    { word: 'SAXOPHONE', cat: 'Music' },
+    { word: 'CHEMISTRY', cat: 'Science' },
+    { word: 'DEMOCRACY', cat: 'Society' },
+    { word: 'SUBMARINE', cat: 'Transport' },
+    { word: 'FIREWORKS', cat: 'Events' },
+    { word: 'ALGORITHM', cat: 'Tech' },
+    { word: 'GEOGRAPHY', cat: 'School' },
+    { word: 'SNOWFLAKE', cat: 'Nature' },
+    { word: 'BLUEPRINT', cat: 'Design' },
+  ],
+};
+
+const TIMER_BY_DIFF  = { easy: 60, medium: 45, hard: 30 };
+const SCORE_MULT     = { easy: 1,  medium: 1.5, hard: 2.5 };
+const WORDS_PER_GAME = 10;
+const CORRECT_EMOJIS = ['🎉','⭐','🌟','🥳','✨','🎊','💥','🏆','🔥','💫'];
+
+/* ════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════ */
+let difficulty     = 'easy';
+let deck           = [];
+let current        = null;
+let scrambled      = '';
+let score          = 0;
+let streak         = 0;
+let bestStreak     = 0;
+let solved         = 0;
+let skipped        = 0;
+let wordIndex      = 0;   // 0-based, current word number
+let timerSec       = 60;
+let timerDuration  = 60;
+let timerInterval  = null;
+let accepting      = true;
+let dotStates      = [];  // 'pending','current','done','skipped'
+
+/* ════════════════════════════════════════════════════════════════
+   DOM REFS
+════════════════════════════════════════════════════════════════ */
+const screenMenu    = document.getElementById('screen-menu');
+const screenGame    = document.getElementById('screen-game');
+const modalOverlay  = document.getElementById('modal-overlay');
+
+const tilesWrap     = document.getElementById('tiles-wrap');
+const feedbackEl    = document.getElementById('feedback');
+const guessInput    = document.getElementById('guess-input');
+const submitBtn     = document.getElementById('submit-btn');
+const skipBtn       = document.getElementById('skip-btn');
+const statScore     = document.getElementById('stat-score');
+const statStreak    = document.getElementById('stat-streak');
+const statSolved    = document.getElementById('stat-solved');
+const timerLabel    = document.getElementById('timer-label');
+const timerSecs     = document.getElementById('timer-secs');
+const timerBar      = document.getElementById('timer-bar');
+const wordHint      = document.getElementById('word-hint');
+const wordDots      = document.getElementById('word-dots');
+const wordCounterLbl= document.getElementById('word-counter-label');
+const correctFlash  = document.getElementById('correct-flash');
+const confettiCanvas= document.getElementById('confetti-canvas');
+const diffBadge     = document.getElementById('diff-badge');
+const backBtn       = document.getElementById('back-btn');
+
+// Modal
+const modalScore    = document.getElementById('modal-score');
+const modalSolved   = document.getElementById('modal-solved');
+const modalStreak   = document.getElementById('modal-streak');
+const modalAccuracy = document.getElementById('modal-accuracy');
+const modalGrade    = document.getElementById('modal-grade-text');
+const modalTrophy   = document.getElementById('modal-trophy');
+const modalTitle    = document.getElementById('modal-title');
+const modalPlayAgain= document.getElementById('modal-play-again');
+const modalChangeDiff= document.getElementById('modal-change-diff');
+
+/* ════════════════════════════════════════════════════════════════
+   SCREEN NAVIGATION
+════════════════════════════════════════════════════════════════ */
+function showMenu() {
+  stopTimer();
+  screenMenu.classList.add('active');
+  screenGame.classList.remove('active');
+  modalOverlay.classList.remove('open');
+}
+
+function showGame() {
+  screenMenu.classList.remove('active');
+  screenGame.classList.add('active');
+}
+
+function showModal() {
+  const accuracy = WORDS_PER_GAME > 0
+    ? Math.round((solved / WORDS_PER_GAME) * 100) : 0;
+
+  modalScore.textContent    = score;
+  modalSolved.textContent   = `${solved}/${WORDS_PER_GAME}`;
+  modalStreak.textContent   = bestStreak;
+  modalAccuracy.textContent = accuracy + '%';
+
+  // Trophy & title by performance
+  if (accuracy === 100) {
+    modalTrophy.textContent = '🏆';
+    modalTitle.innerHTML    = 'Perfect <span>Score!</span>';
+  } else if (accuracy >= 70) {
+    modalTrophy.textContent = '🌟';
+    modalTitle.innerHTML    = 'Round <span>Complete!</span>';
+  } else {
+    modalTrophy.textContent = '💪';
+    modalTitle.innerHTML    = 'Keep <span>Practicing!</span>';
+  }
+
+  // Grade text
+  const gradeMessages = [
+    [100, '🏆 Flawless! You crushed every word!'],
+    [90,  '🌟 Outstanding! Nearly perfect!'],
+    [70,  '🎉 Great job! You\'re getting better!'],
+    [50,  '⚡ Decent run — keep practicing!'],
+    [0,   '💪 Don\'t give up — you\'ll get there!'],
+  ];
+  const msg = gradeMessages.find(([threshold]) => accuracy >= threshold);
+  modalGrade.textContent = msg ? msg[1] : '💪 Keep going!';
+
+  modalOverlay.classList.add('open');
+  if (accuracy >= 70) launchConfetti();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   GAME INIT
+════════════════════════════════════════════════════════════════ */
+function startGame(diff) {
+  difficulty    = diff;
+  timerDuration = TIMER_BY_DIFF[diff];
+  deck          = shuffle([...WORD_BANK[diff]]).slice(0, WORDS_PER_GAME);
+  score = streak = bestStreak = solved = skipped = wordIndex = 0;
+  dotStates     = Array(WORDS_PER_GAME).fill('pending');
+
+  diffBadge.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+  diffBadge.className   = `diff-badge ${diff}`;
+  updateStats();
+  buildDots();
+  showGame();
+  loadWord();
+}
+
+function buildDots() {
+  wordDots.innerHTML = '';
+  for (let i = 0; i < WORDS_PER_GAME; i++) {
+    const d = document.createElement('div');
+    d.className = 'word-dot pending';
+    d.id = `dot-${i}`;
+    wordDots.appendChild(d);
+  }
+  updateDots();
+}
+
+function updateDots() {
+  for (let i = 0; i < WORDS_PER_GAME; i++) {
+    const el = document.getElementById(`dot-${i}`);
+    if (!el) continue;
+    el.className = 'word-dot ' + dotStates[i];
+  }
+  wordCounterLbl.textContent = `${wordIndex + 1} / ${WORDS_PER_GAME}`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   WORD FLOW
+════════════════════════════════════════════════════════════════ */
+function loadWord() {
+  if (wordIndex >= WORDS_PER_GAME) {
+    stopTimer();
+    setTimeout(showModal, 600);
+    return;
+  }
+  current   = deck[wordIndex];
+  scrambled = scrambleWord(current.word);
+
+  guessInput.value       = '';
+  feedbackEl.textContent = '';
+  feedbackEl.className   = 'feedback';
+  acceptingOn();
+
+  wordHint.textContent = `Category: ${current.cat}`;
+  dotStates[wordIndex] = 'current';
+  updateDots();
+  renderTiles(scrambled);
+  startTimer();
+  guessInput.focus();
+}
+
+function advanceWord() {
+  wordIndex++;
+  if (wordIndex >= WORDS_PER_GAME) {
+    stopTimer();
+    setTimeout(showModal, 700);
+  } else {
+    loadWord();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SUBMIT / EVALUATE
+════════════════════════════════════════════════════════════════ */
+function submitGuess() {
+  if (!accepting) return;
+  const guess = guessInput.value.trim().toUpperCase();
+  if (!guess) return;
+
+  if (guess === current.word) {
+    handleCorrect();
+  } else {
+    handleWrong();
+  }
+}
+
+function handleCorrect() {
+  stopTimer();
+  acceptingOff();
+
+  const mult     = SCORE_MULT[difficulty];
+  const timeBonus= Math.floor(timerSec * 0.6 * mult);
+  const pts      = Math.round(10 * mult) + timeBonus;
+  score += pts;
+
+  streak++;
+  if (streak > bestStreak) bestStreak = streak;
+  solved++;
+  dotStates[wordIndex] = 'done';
+
+  updateStats();
+  showFeedback(`✅ Correct! +${pts} pts`, 'correct');
+  triggerCorrectEffects();
+  guessInput.classList.add('correct-input');
+
+  setTimeout(() => {
+    guessInput.classList.remove('correct-input');
+    advanceWord();
+  }, 1500);
+}
+
+function handleWrong() {
+  // Re-trigger shake cleanly without listener buildup
+  guessInput.classList.remove('shake');
+  void guessInput.offsetWidth;
+  guessInput.classList.add('shake');
+  setTimeout(() => guessInput.classList.remove('shake'), 420);
+  showFeedback('❌ Try again!', 'wrong');
+  guessInput.select();
+  guessInput.focus();
+}
+
+function handleSkip() {
+  if (!accepting) return;
+  stopTimer();
+  acceptingOff();
+  skipped++;
+  streak = 0;
+  dotStates[wordIndex] = 'skipped';
+  updateStats();
+  showFeedback(`⏭ Skipped! Answer: ${current.word}`, 'skip');
+  showAnswerReveal(current.word);
+
+  setTimeout(advanceWord, 1800);
+}
+
+function handleTimeout() {
+  if (!accepting) return;
+  acceptingOff();
+  skipped++;
+  streak = 0;
+  dotStates[wordIndex] = 'skipped';
+  updateStats();
+  showFeedback(`⏰ Time's up! Answer: ${current.word}`, 'skip');
+  showAnswerReveal(current.word);
+
+  setTimeout(advanceWord, 2000);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TIMER
+════════════════════════════════════════════════════════════════ */
+function startTimer() {
+  clearInterval(timerInterval);
+  timerSec = timerDuration;
+  updateTimerUI();
+  timerInterval = setInterval(() => {
+    timerSec--;
+    updateTimerUI();
+    if (timerSec <= 0) {
+      clearInterval(timerInterval);
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); }
+
+function updateTimerUI() {
+  const pct    = (timerSec / timerDuration) * 100;
+  const urgent = timerSec <= Math.min(10, timerDuration * 0.25);
+
+  timerBar.style.width = pct + '%';
+  timerSecs.textContent = timerSec;
+
+  timerBar.classList.toggle('urgent', urgent);
+  timerSecs.classList.toggle('urgent', urgent);
+  timerLabel.classList.toggle('urgent', urgent);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════════════════════ */
+function renderTiles(word) {
+  tilesWrap.innerHTML = '';
+  word.split('').forEach((letter, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.textContent = letter;
+    tile.style.animationDelay = (i * 55) + 'ms';
+    tilesWrap.appendChild(tile);
+  });
+}
+
+function showAnswerReveal(word) {
+  tilesWrap.innerHTML = '';
+  const reveal = document.createElement('div');
+  reveal.className  = 'answer-reveal';
+  reveal.textContent = word;
+  tilesWrap.appendChild(reveal);
+}
+
+function showFeedback(msg, type) {
+  feedbackEl.textContent = msg;
+  feedbackEl.className   = `feedback ${type}`;
+}
+
+function updateStats() {
+  statScore.textContent  = score;
+  statStreak.textContent = streak;
+  statSolved.textContent = solved;
+}
+
+function acceptingOn()  {
+  accepting = true;
+  submitBtn.disabled = false;
+  skipBtn.disabled   = false;
+}
+function acceptingOff() {
+  accepting = false;
+  submitBtn.disabled = true;
+  skipBtn.disabled   = true;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CORRECT EFFECTS
+════════════════════════════════════════════════════════════════ */
+function triggerCorrectEffects() {
+  correctFlash.classList.remove('active');
+  void correctFlash.offsetWidth;
+  correctFlash.classList.add('active');
+  // Clean up after animation so it can fire again next time
+  correctFlash.addEventListener('animationend', () => {
+    correctFlash.classList.remove('active');
+  }, { once: true });
+
+  // Emoji pop
+  const emoji = CORRECT_EMOJIS[Math.floor(Math.random() * CORRECT_EMOJIS.length)];
+  const card  = document.getElementById('game-card');
+  const rect  = card.getBoundingClientRect();
+  const el    = document.createElement('div');
+  el.className   = 'emoji-pop';
+  el.textContent = emoji;
+  el.style.left  = (rect.left + rect.width / 2 - 22) + 'px';
+  el.style.top   = (rect.top  + rect.height / 2 - 22) + 'px';
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove(), { once: true });
+
+  // Confetti burst
+  launchConfetti();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONFETTI ENGINE
+════════════════════════════════════════════════════════════════ */
+let confettiParticles = [];
+let confettiRaf       = null;
+
+function launchConfetti() {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+
+  const colors = ['#7ed321','#ff7b00','#00d4ff','#ff4da6','#ffd700','#ffffff'];
+  const cx     = window.innerWidth  / 2;
+  const cy     = window.innerHeight * 0.38;
+
+  for (let i = 0; i < 80; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 7;
+    confettiParticles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 7,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 8,
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 14,
+      life: 1,
+      decay: 0.016 + Math.random() * 0.012,
+      isRect: Math.random() > 0.45,
+    });
+  }
+  if (!confettiRaf) animateConfetti();
+}
+
+function animateConfetti() {
+  const ctx = confettiCanvas.getContext('2d');
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParticles = confettiParticles.filter(p => p.life > 0);
+
+  for (const p of confettiParticles) {
+    p.x  += p.vx;
+    p.y  += p.vy;
+    p.vy += 0.32; // gravity
+    p.vx *= 0.985;
+    p.rotation += p.rotSpeed;
+    p.life     -= p.decay;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.rotation * Math.PI) / 180);
+    ctx.fillStyle = p.color;
+    if (p.isRect) {
+      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  if (confettiParticles.length > 0) {
+    confettiRaf = requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRaf = null;
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  }
+}
+
+window.addEventListener('resize', () => {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+});
+
+/* ════════════════════════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════════════════════════ */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function scrambleWord(word) {
+  const letters = word.split('');
+  let attempt, tries = 0;
+  do {
+    attempt = shuffle(letters).join('');
+    tries++;
+  } while (attempt === word && tries < 50);
+  return attempt;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EVENT LISTENERS
+════════════════════════════════════════════════════════════════ */
+// Difficulty cards → start game
+document.querySelectorAll('.diff-card').forEach(card => {
+  card.addEventListener('click', () => {
+    startGame(card.dataset.diff);
+  });
+});
+
+// Back button → main menu
+backBtn.addEventListener('click', () => {
+  stopTimer();
+  showMenu();
+});
+
+// Submit
+submitBtn.addEventListener('click', () => {
+  submitGuess();
+  guessInput.focus();
+});
+
+// Skip
+skipBtn.addEventListener('click', () => {
+  handleSkip();
+});
+
+// Enter key
+guessInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitGuess();
+});
+
+// Modal — Play Again
+modalPlayAgain.addEventListener('click', () => {
+  modalOverlay.classList.remove('open');
+  startGame(difficulty);
+});
+
+// Modal — Change Difficulty
+modalChangeDiff.addEventListener('click', () => {
+  modalOverlay.classList.remove('open');
+  showMenu();
+});
+
+// Close modal on overlay click
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) {
+    // do nothing — require explicit button press
+  }
+});
+
+
+// How to Play Modal logic
+const btnHowTo = document.getElementById('btn-how-to');
+const howToModal = document.getElementById('how-to-modal');
+const btnCloseHowTo = document.getElementById('btn-close-how-to');
+
+btnHowTo.addEventListener('click', () => {
+  howToModal.classList.add('open');
+});
+
+btnCloseHowTo.addEventListener('click', () => {
+  howToModal.classList.remove('open');
+});
+
+howToModal.addEventListener('click', e => {
+  if (e.target === howToModal) {
+    howToModal.classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>

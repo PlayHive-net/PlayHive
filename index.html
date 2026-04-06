@@ -238,7 +238,7 @@
 
     /* MODAL */
     #modal-backdrop{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:12px}
-    #modal-backdrop.open{display:flex;animation:fadeIn .22s ease}
+    #modal-backdrop.open{display:flex;animation:fadeBackdrop .22s ease forwards}
     #modal-box{width:96vw;max-width:1200px;height:92vh;background:var(--navy-mid);border-radius:var(--radius-lg);border:2px solid var(--border);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 100px rgba(0,0,0,.7),0 0 0 1px rgba(126,211,33,.12);animation:popIn .25s ease}
     #modal-header{background:var(--navy);border-bottom:2px solid var(--border);height:56px;display:flex;align-items:center;padding:0 15px;gap:11px;flex-shrink:0}
     .modal-dot{width:9px;height:9px;border-radius:50%;background:var(--lime);flex-shrink:0;animation:pulseGlow 2s ease-in-out infinite}

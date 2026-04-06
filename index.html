@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
+  <link rel="manifest" href="favicon_io/site.webmanifest">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlayHive.Net — Free Online Games for Learning and Fun</title>
+  <meta name="description" content="Play free math games online! PlayHive.Net has fun, educational games for kids of all ages. No ads, no tracking, just learning through play!" />
+  <style>
+    :root {
+      --navy:        #0d1b2a;
+      --navy-mid:    #132338;
+      --navy-card:   #1a2f47;
+      --navy-light:  #1f3a57;
+      --lime:        #7ed321;
+      --lime-dark:   #5fab00;
+      --lime-glow:   rgba(126,211,33,0.18);
+      --orange:      #ff7b00;
+      --orange-dark: #e06900;
+      --cyan:        #00d4ff;
+      --pink:        #ff4da6;
+      --yellow:      #ffd60a;
+      --text:        #e8f1fa;
+      --text-dim:    #7a99bb;
+      --text-dark:   #3d5a75;
+      --border:      rgba(255,255,255,0.08);
+      --border-lime: rgba(126,211,33,0.3);
+      --radius:      10px;
+      --radius-lg:   16px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth;font-size:16px}
+    body{font-family:'Nunito',sans-serif;background:var(--navy);color:var(--text);line-height:1.5;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+    a{color:inherit;text-decoration:none}
+    button{cursor:pointer;border:none;background:none;font-family:inherit}
+    ul{list-style:none}
+    img{display:block;max-width:100%}
+    [hidden]{display:none!important}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
+	
+	/* Local Font Setup */
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url('fonts/fredokaone.woff2') format('woff2');
+	  font-weight: normal;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url('fonts/Nunito-VariableFont_wght.ttf') format('truetype');
+	  font-weight: 400 900; 
+	  font-style: normal;
+	}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.9) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 var(--lime-glow)}50%{box-shadow:0 0 18px 6px var(--lime-glow)}}
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    @keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-10px) rotate(3deg)}}
+
+    /* TICKER */
+    #top-ticker{background:var(--lime);overflow:hidden;height:30px;display:flex;align-items:center;position:relative;z-index:100}
+    .ticker-label{background:var(--lime-dark);color:#fff;font-weight:900;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;padding:0 14px;height:100%;display:flex;align-items:center;white-space:nowrap;flex-shrink:0;z-index:1}
+    .ticker-track{display:flex;animation:marquee 26s linear infinite;white-space:nowrap}
+    .ticker-track span{font-size:.76rem;font-weight:700;color:var(--navy);padding:0 24px}
+    .ticker-track span::before{content:'⭐ '}
+
+    /* NAVBAR */
+    #navbar{position:sticky;top:0;z-index:500;background:var(--navy-mid);border-bottom:2px solid var(--border);box-shadow:0 4px 24px rgba(0,0,0,.4)}
+    .nav-inner{max-width:1400px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:14px}
+    .nav-logo{display:flex;align-items:center;flex-shrink:0;line-height:1}
+    .logo-box{display:flex;flex-direction:column;gap:0}
+    .logo-line1{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--lime);letter-spacing:.04em}
+    .logo-line2{font-family:'Fredoka One',cursive;font-size:1.4rem;color:#fff;letter-spacing:.02em;margin-top:-4px}
+    .logo-line3{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--orange);letter-spacing:.06em;margin-top:-5px}
+    .nav-search-wrap{flex:1;max-width:360px;position:relative;margin-left:10px}
+    .nav-search-wrap input{width:100%;background:var(--navy-light);border:2px solid var(--border);border-radius:100px;color:var(--text);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:600;padding:8px 14px 8px 38px;outline:none;transition:border-color .2s,box-shadow .2s}
+    .nav-search-wrap input::placeholder{color:var(--text-dark)}
+    .nav-search-wrap input:focus{border-color:var(--lime);box-shadow:0 0 0 3px var(--lime-glow)}
+    .nav-search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.45;pointer-events:none;font-size:.95rem}
+    .nav-links{display:flex;align-items:center;gap:2px;margin-left:auto}
+    .nav-links a{font-weight:700;font-size:.86rem;padding:6px 12px;border-radius:8px;color:var(--text-dim);transition:color .2s,background .2s;white-space:nowrap}
+    .nav-links a:hover{color:#fff;background:var(--navy-light)}
+    .nav-hot{background:var(--orange)!important;color:#fff!important;border-radius:8px;padding:7px 14px!important}
+    .nav-hot:hover{background:var(--orange-dark)!important}
+    .hamburger{display:none;flex-direction:column;gap:5px;padding:8px;margin-left:auto}
+    .hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:all .28s}
+    .hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+    .hamburger.open span:nth-child(2){opacity:0}
+    .hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+    .mobile-menu{display:none;background:var(--navy-mid);border-bottom:2px solid var(--border);padding:10px 20px;flex-direction:column;gap:2px;position:relative;z-index:499}
+    .mobile-menu.open{display:flex}
+    .mobile-menu a{padding:9px 14px;font-weight:700;font-size:.92rem;color:var(--text-dim);border-radius:8px;transition:background .2s,color .2s}
+    .mobile-menu a:hover{background:var(--navy-light);color:#fff}
+
+    /* HERO */
+    #hero{position:relative;overflow:hidden;padding:50px 24px 54px;text-align:center;background:radial-gradient(ellipse 90% 70% at 50% -5%,rgba(126,211,33,.12) 0%,transparent 60%),radial-gradient(ellipse 50% 50% at 90% 80%,rgba(255,123,0,.1) 0%,transparent 55%),var(--navy-mid);border-bottom:2px solid var(--border);z-index:1}
+    .math-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+    .msym{position:absolute;font-family:'Fredoka One',cursive;color:rgba(126,211,33,.07);animation:float 6s ease-in-out infinite;user-select:none}
+    .hero-content{position:relative;z-index:1;max-width:720px;margin:0 auto;animation:fadeUp .6s ease both}
+    .hero-eyebrow{display:inline-flex;align-items:center;gap:7px;background:var(--lime-glow);border:1px solid var(--border-lime);color:var(--lime);font-weight:800;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:100px;margin-bottom:16px}
+    .hero-eyebrow .blink{width:7px;height:7px;background:var(--lime);border-radius:50%;animation:pulseGlow 2s ease-in-out infinite}
+    #hero h1{font-family:'Fredoka One',cursive;font-size:clamp(2.1rem,6vw,3.6rem);line-height:1.1;color:#fff;margin-bottom:12px;letter-spacing:.02em}
+    #hero h1 em{font-style:normal;color:var(--lime)}
+    #hero h1 .or{color:var(--orange)}
+    #hero p{font-size:clamp(.92rem,2vw,1.06rem);color:var(--text-dim);max-width:500px;margin:0 auto 26px;font-weight:600}
+    .hero-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:34px}
+    .btn{display:inline-flex;align-items:center;gap:7px;font-family:'Fredoka One',cursive;font-size:1.02rem;letter-spacing:.03em;padding:11px 24px;border-radius:100px;transition:all .2s;cursor:pointer;border:none;text-decoration:none}
+    .btn-lime{background:var(--lime);color:var(--navy);box-shadow:0 4px 18px rgba(126,211,33,.35)}
+    .btn-lime:hover{background:var(--lime-dark);transform:translateY(-2px);box-shadow:0 8px 26px rgba(126,211,33,.45)}
+    .btn-ghost{background:transparent;color:var(--text);border:2px solid var(--border)}
+    .btn-ghost:hover{border-color:var(--lime);color:var(--lime);background:var(--lime-glow)}
+    .hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap}
+    .hst{display:flex;flex-direction:column;align-items:center;gap:2px}
+    .hst-num{font-family:'Fredoka One',cursive;font-size:1.9rem;color:var(--lime);line-height:1}
+    .hst-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dark)}
+    .hst-sep{width:1px;height:34px;background:var(--border);align-self:center}
+
+    /* PAGE BODY */
+    #page-body{max-width:1400px;margin:0 auto;padding:22px 20px;display:grid;grid-template-columns:210px 1fr;gap:22px;position:relative;z-index:1}
+
+    /* SIDEBAR */
+    #sidebar {
+	  position: sticky;
+	  top: 82px;
+	  height: fit-content;
+	  max-height: calc(100vh - 100px); /* Restricts height so it can scroll */
+	  overflow-y: auto; /* Enables scrolling */
+	  scrollbar-width: none; /* Hides scrollbar in Firefox */
+	  display: flex;
+	  flex-direction: column;
+	  gap: 4px;
+	}
+
+	/* Hides scrollbar in Chrome, Safari, and Edge */
+	#sidebar::-webkit-scrollbar {
+	  display: none;
+	}
+    .sb-head{font-family:'Fredoka One',cursive;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dark);padding:4px 10px 6px}
+    .sb-btn{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:var(--radius);font-weight:700;font-size:.88rem;color:var(--text-dim);transition:all .16s;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+    .sb-btn:hover{background:var(--navy-card);color:#fff}
+    .sb-btn.active{background:var(--lime-glow);color:var(--lime);border:1px solid var(--border-lime)}
+    .sb-icon{font-size:1rem;width:20px;height:20px;text-align:center;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+    .sb-ct{margin-left:auto;font-size:.68rem;font-weight:800;background:var(--navy-light);color:var(--text-dark);padding:2px 6px;border-radius:100px}
+    .sb-btn.active .sb-ct{background:var(--lime-dark);color:#fff}
+    .sb-div{height:1px;background:var(--border);margin:5px 10px}
+
+    /* MAIN */
+    #main-content{min-width:0}
+
+    /* SECTION HEAD */
+    .sec-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .sec-title{font-family:'Fredoka One',cursive;font-size:1.35rem;color:#fff;letter-spacing:.02em}
+    .sec-pill{background:var(--lime-glow);border:1px solid var(--border-lime);color:var(--lime);font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:100px}
+    .sec-right{margin-left:auto;font-size:.8rem;font-weight:700;color:var(--text-dark)}
+
+    /* FEATURED STRIP */
+    .feat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+    .feat-card{position:relative;border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;background:var(--navy-card);border:2px solid var(--border);aspect-ratio:16/9;transition:transform .22s,border-color .22s,box-shadow .22s}
+    .feat-card:hover{transform:translateY(-4px);border-color:var(--lime);box-shadow:0 10px 36px rgba(0,0,0,.5)}
+    .feat-card:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+    .feat-thumb{width:100%;height:100%;object-fit:cover}
+    .feat-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;background:linear-gradient(135deg,var(--fc1,#1f3a57),var(--fc2,#132338))}
+    .feat-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 100%);padding:26px 14px 12px}
+    .feat-title{font-family:'Fredoka One',cursive;font-size:1.05rem;color:#fff}
+    .feat-sub{font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;margin-top:3px}
+    .feat-badge-play{position:absolute;top:9px;right:9px;background:var(--lime);color:var(--navy);font-weight:900;font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:5px}
+    .feat-badge-new{position:absolute;top:9px;left:9px;background:var(--orange);color:#fff;font-weight:900;font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:5px}
+
+    /* GAME GRID */
+    .games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:13px}
+    .gc{background:var(--navy-card);border-radius:var(--radius);overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:transform .2s,border-color .2s,box-shadow .2s;position:relative;display:flex;flex-direction:column;animation:fadeUp .4s ease both;animation-delay:calc(var(--i,0)*.04s)}
+    .gc:hover{transform:translateY(-4px);border-color:var(--lime);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+    .gc:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+    .gc-thumb{position:relative;width:100%;padding-top:68%;overflow:hidden;background:var(--navy-light);flex-shrink:0}
+    .gc-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+    .gc:hover .gc-thumb img{transform:scale(1.06)}
+    .gc-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.8rem;background:linear-gradient(135deg,var(--gc1,#1f3a57) 0%,var(--gc2,#0d1b2a) 100%)}
+    .gc-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+    .gc:hover .gc-overlay{opacity:1}
+    .gc-play-btn{background:var(--lime);color:var(--navy);font-family:'Fredoka One',cursive;font-size:.82rem;padding:7px 16px;border-radius:100px;display:flex;align-items:center;gap:4px}
+    .gc-cat-badge{position:absolute;bottom:6px;left:6px;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fff;padding:2px 7px;border-radius:4px}
+    .gc-new-badge{position:absolute;top:6px;right:6px;background:var(--orange);color:#fff;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:4px}
+    .gc-info{padding:8px 10px 10px;display:flex;flex-direction:column;gap:3px}
+    .gc-title{font-family:'Fredoka One',cursive;font-size:.92rem;color:#fff;letter-spacing:.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .gc-meta{display:flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;color:var(--text-dark)}
+    .gc-dot{width:3px;height:3px;border-radius:50%;background:currentColor}
+    .de{color:var(--lime)}
+    .dm{color:var(--orange)}
+    .dh{color:var(--pink)}
+
+    /* EMPTY */
+    #empty-state{text-align:center;padding:72px 24px;color:var(--text-dim)}
+    #empty-state .big{font-size:3.5rem;margin-bottom:10px}
+    #empty-state p{font-size:1rem;font-weight:700}
+    #empty-state small{font-size:.82rem;color:var(--text-dark)}
+
+    /* CATEGORIES */
+    #sect-cats{margin-top:38px;scroll-margin-top:80px}
+    .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+    .cat-card{background:var(--navy-card);border:2px solid var(--border);border-radius:var(--radius-lg);padding:18px 12px 16px;text-align:center;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:9px}
+    .cat-card:hover{border-color:var(--cc-color,var(--lime));background:var(--navy-light);transform:translateY(-3px);box-shadow:0 6px 22px rgba(0,0,0,.3)}
+    .cat-card:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+    .cat-icon{font-size:2.1rem;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.05);transition:transform .2s}
+    .cat-card:hover .cat-icon{transform:scale(1.18) rotate(-5deg)}
+    .cat-name{font-family:'Fredoka One',cursive;font-size:.92rem;color:#fff;letter-spacing:.02em}
+    .cat-count{font-size:.7rem;font-weight:800;color:var(--text-dark);background:var(--navy-light);padding:2px 9px;border-radius:100px}
+
+    /* ABOUT */
+    #about-strip{margin-top:38px;background:var(--navy-card);border:2px solid var(--border);border-radius:var(--radius-lg);padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:28px;scroll-margin-top:80px}
+    .about-col h3{font-family:'Fredoka One',cursive;font-size:1.2rem;color:var(--lime);margin-bottom:10px;letter-spacing:.02em}
+    .about-col p{font-size:.86rem;color:var(--text-dim);line-height:1.7;margin-bottom:9px}
+    .about-chk{display:flex;flex-direction:column;gap:7px}
+    .about-chk li{display:flex;align-items:flex-start;gap:7px;font-size:.84rem;color:var(--text-dim)}
+    .about-chk li .ck{color:var(--lime);font-weight:900;flex-shrink:0}
+    .add-box{background:var(--navy);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:var(--radius);padding:13px 15px;margin-top:13px}
+    .add-box h4{font-family:'Fredoka One',cursive;font-size:.9rem;color:var(--orange);margin-bottom:7px}
+    .add-box ol{list-style:decimal;padding-left:17px;display:flex;flex-direction:column;gap:4px}
+    .add-box li{font-size:.8rem;color:var(--text-dim);display:list-item}
+    code{font-family:monospace;background:rgba(126,211,33,.1);color:var(--lime);padding:1px 5px;border-radius:4px;font-size:.83em}
+
+    /* FOOTER */
+    footer{background:var(--navy-mid);border-top:2px solid var(--border);padding:32px 24px;text-align:center;position:relative;z-index:1;margin-top:36px}
+    .footer-inner{max-width:560px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:12px}
+    .footer-logo{font-family:'Fredoka One',cursive;font-size:1.35rem;color:var(--lime)}
+    .footer-links{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+    .footer-links a{font-size:.82rem;font-weight:700;color:var(--text-dark);transition:color .2s}
+    .footer-links a:hover{color:var(--lime)}
+    .footer-tag{font-size:.8rem;color:var(--text-dark)}
+    .footer-tag span{color:var(--orange)}
+    .footer-priv{font-size:.73rem;color:var(--text-dark);max-width:440px;line-height:1.6}
+
+    /* MODAL */
+    #modal-backdrop{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:12px}
+    #modal-backdrop.open{display:flex;animation:fadeIn .22s ease}
+    #modal-box{width:96vw;max-width:1200px;height:92vh;background:var(--navy-mid);border-radius:var(--radius-lg);border:2px solid var(--border);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 100px rgba(0,0,0,.7),0 0 0 1px rgba(126,211,33,.12);animation:popIn .25s ease}
+    #modal-header{background:var(--navy);border-bottom:2px solid var(--border);height:56px;display:flex;align-items:center;padding:0 15px;gap:11px;flex-shrink:0}
+    .modal-dot{width:9px;height:9px;border-radius:50%;background:var(--lime);flex-shrink:0;animation:pulseGlow 2s ease-in-out infinite}
+    #modal-title{font-family:'Fredoka One',cursive;font-size:1.1rem;color:#fff;letter-spacing:.02em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .modal-actions{display:flex;gap:7px;flex-shrink:0}
+    #btn-fullscreen{display:flex;align-items:center;gap:5px;background:var(--navy-light);color:var(--text-dim);font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;padding:6px 12px;border-radius:7px;border:1px solid var(--border);transition:all .2s}
+    #btn-fullscreen:hover{color:var(--lime);border-color:var(--border-lime);background:var(--navy-card)}
+    #btn-close{display:flex;align-items:center;gap:5px;background:rgba(220,38,38,.14);color:#f87171;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;padding:6px 12px;border-radius:7px;border:1px solid rgba(220,38,38,.24);transition:all .2s}
+    #btn-close:hover{background:#dc2626;color:#fff;border-color:transparent}
+    #game-iframe{flex:1;width:100%;border:none;background:#fff}
+    #modal-loading{position:absolute;inset:56px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--navy);transition:opacity .3s}
+    #modal-loading.hidden{opacity:0;pointer-events:none}
+    .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite}
+    #modal-loading p{font-weight:700;color:var(--text-dim);font-size:.86rem}
+
+    /* RESPONSIVE */
+    @media(max-width:1000px){#page-body{grid-template-columns:180px 1fr}}
+    @media(max-width:780px){#page-body{grid-template-columns:1fr}#sidebar{position:static;display:none}.feat-strip{grid-template-columns:1fr 1fr}#about-strip{grid-template-columns:1fr;gap:20px}.nav-links{display:none}.hamburger{display:flex}}
+    @media(max-width:500px){.feat-strip{grid-template-columns:1fr}.games-grid{grid-template-columns:repeat(2,1fr)}.cat-grid{grid-template-columns:repeat(2,1fr)}#modal-box{width:100vw;height:100dvh;border-radius:0}}
+	
+	body {
+	  -webkit-user-select: none;
+	  -moz-user-select: none;
+	  -ms-user-select: none;
+	  user-select: none;
+	}
+
+	/* Allow selection where needed */
+	input, textarea {
+	  -webkit-user-select: text;
+	  -moz-user-select: text;
+	  -ms-user-select: text;
+	  user-select: text;
+	}
+	
+  </style>
+</head>
+<body oncontextmenu="return false;">
+
+<!-- TICKER -->
+<div id="top-ticker" aria-hidden="true">
+  <div class="ticker-label">🔥 Hot Now</div>
+  <div class="ticker-track">
+    <span>Snake</span><span>2048</span><span>Memory Match</span><span>Math Quiz</span>
+    <span>Word Scramble</span><span>Draw &amp; Paint</span><span>Sudoku</span><span>Typing Race</span>
+    <span>Snake</span><span>2048</span><span>Memory Match</span><span>Math Quiz</span>
+    <span>Word Scramble</span><span>Draw &amp; Paint</span><span>Sudoku</span><span>Typing Race</span>
+  </div>
+</div>
+
+<!-- NAVBAR -->
+<header id="navbar" role="banner">
+  <nav class="nav-inner" aria-label="Main navigation">
+    <a href="#" class="nav-logo" aria-label="Play Hive home">
+      <div class="logo-box">
+        <span class="logo-line1">PLAY</span>
+        <span class="logo-line2">HIVE</span>
+        <span class="logo-line3">.NET</span>
+      </div>
+    </a>
+    <div class="nav-search-wrap">
+      <span class="nav-search-icon" aria-hidden="true">🔍</span>
+      <label for="nav-search" class="sr-only">Search games</label>
+      <input type="search" id="nav-search" placeholder="Search games…" autocomplete="off" />
+    </div>
+    <ul class="nav-links" role="list">
+      <li><a href="#">Home</a></li>
+      <li><a href="#sect-cats">Categories</a></li>
+      <li><a href="#main-content">Games</a></li>
+      <li><a href="#about-strip">About</a></li>
+      <li><a href="#main-content" class="nav-hot">▶ Play</a></li>
+    </ul>
+    <button class="hamburger" id="ham-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mob-nav">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+<div class="mobile-menu" id="mob-nav" role="navigation" aria-label="Mobile navigation">
+  <a href="#">🏠 Home</a>
+  <a href="#sect-cats">🗂 Categories</a>
+  <a href="#main-content">🎮 Games</a>
+  <a href="#about-strip">ℹ️ About</a>
+</div>
+
+<!-- HERO -->
+<section id="hero" aria-labelledby="hero-h1">
+  <div class="math-bg" aria-hidden="true">
+    <div class="msym" style="top:8%;left:5%;font-size:5rem;animation-delay:0s">+</div>
+    <div class="msym" style="top:15%;right:6%;font-size:6.5rem;animation-delay:1s">×</div>
+    <div class="msym" style="bottom:22%;left:8%;font-size:5rem;animation-delay:2s">÷</div>
+    <div class="msym" style="bottom:14%;right:9%;font-size:7rem;animation-delay:.5s">−</div>
+    <div class="msym" style="top:50%;left:2%;font-size:3.5rem;animation-delay:1.5s">=</div>
+    <div class="msym" style="top:42%;right:3%;font-size:4rem;animation-delay:2.5s">∑</div>
+    <div class="msym" style="top:68%;left:20%;font-size:3rem;animation-delay:3s">π</div>
+    <div class="msym" style="bottom:28%;right:20%;font-size:3rem;animation-delay:1.8s">∞</div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-eyebrow"><span class="blink"></span>Free · Safe · No Ads · No Sign-up</div>
+    <h1 id="hero-h1"><em>Play</em>Hive —<br/><span class="or">Learn Through Play!</span></h1>
+    <p>The best free online games for kids. Brain-training fun — forever free and totally safe.</p>
+    <div class="hero-btns">
+      <a href="#main-content" class="btn btn-lime">🎮 Play Games</a>
+      <a href="#about-strip" class="btn btn-ghost">👪 For Parents</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hst"><span class="hst-num" id="hero-cnt">8</span><span class="hst-label">Games</span></div>
+      <div class="hst-sep"></div>
+      <div class="hst"><span class="hst-num">0</span><span class="hst-label">Ads</span></div>
+      <div class="hst-sep"></div>
+      <div class="hst"><span class="hst-num">0</span><span class="hst-label">Trackers</span></div>
+      <div class="hst-sep"></div>
+      <div class="hst"><span class="hst-num">0</span><span class="hst-label">Sign-ups</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PAGE BODY -->
+<div id="page-body">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" role="complementary" aria-label="Filter games">
+    <div class="sb-head">Categories</div>
+    <button class="sb-btn active" data-cat="all" aria-pressed="true">
+      <span class="sb-icon">🎮</span>All Games<span class="sb-ct" id="sb-all">8</span>
+    </button>
+    <button class="sb-btn" data-cat="numbers" aria-pressed="false">
+      <span class="sb-icon">🔢</span>Numbers<span class="sb-ct" id="sb-logic">0</span>
+    </button>
+    <button class="sb-btn" data-cat="logic" aria-pressed="false">
+      <span class="sb-icon">🧩</span>Logic<span class="sb-ct" id="sb-logic">0</span>
+    </button>
+    <button class="sb-btn" data-cat="memory" aria-pressed="false">
+      <span class="sb-icon">🃏</span>Memory<span class="sb-ct" id="sb-memory">0</span>
+    </button>
+    <button class="sb-btn" data-cat="skill" aria-pressed="false">
+      <span class="sb-icon">⌨️</span>Skill<span class="sb-ct" id="sb-skill">0</span>
+    </button>
+    <button class="sb-btn" data-cat="creative" aria-pressed="false">
+      <span class="sb-icon">🎨</span>Creative<span class="sb-ct" id="sb-creative">0</span>
+    </button>
+    <button class="sb-btn" data-cat="strategy" aria-pressed="false">
+      <span class="sb-icon">♟</span>Strategy<span class="sb-ct" id="sb-strategy">0</span>
+    </button>
+    <div class="sb-div"></div>
+    <div class="sb-head">Age</div>
+    <button class="sb-btn active" data-age="all" aria-pressed="true"><span class="sb-icon">🌟</span>All Ages</button>
+    <button class="sb-btn" data-age="5-7" aria-pressed="false"><span class="sb-icon">🐣</span>Ages 5–7</button>
+    <button class="sb-btn" data-age="8-10" aria-pressed="false"><span class="sb-icon">🚀</span>Ages 8–10</button>
+    <button class="sb-btn" data-age="11-14" aria-pressed="false"><span class="sb-icon">🧠</span>Ages 11–14</button>
+    <div class="sb-div"></div>
+    <div class="sb-head">Difficulty</div>
+    <button class="sb-btn active" data-diff="all" aria-pressed="true"><span class="sb-icon">🎯</span>All Levels</button>
+    <button class="sb-btn" data-diff="easy" aria-pressed="false"><span class="sb-icon" style="color:var(--lime)">●</span>Easy</button>
+    <button class="sb-btn" data-diff="medium" aria-pressed="false"><span class="sb-icon" style="color:var(--orange)">●</span>Medium</button>
+    <button class="sb-btn" data-diff="hard" aria-pressed="false"><span class="sb-icon" style="color:var(--pink)">●</span>Hard</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main-content">
+    <!-- Featured -->
+    <div class="sec-head">
+      <span class="sec-title">⭐ Featured</span>
+      <span class="sec-pill">Editor's Picks</span>
+    </div>
+    <div class="feat-strip" id="feat-strip" role="list" aria-label="Featured games"></div>
+
+    <!-- Mobile search -->
+    <div id="mob-search-wrap" style="display:none;margin:18px 0 0">
+      <div style="position:relative">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.45;pointer-events:none;font-size:.95rem">🔍</span>
+        <label for="mob-search" class="sr-only">Search games</label>
+        <input type="search" id="mob-search" placeholder="Search games…" autocomplete="off"
+          style="width:100%;background:var(--navy-card);border:2px solid var(--border);border-radius:100px;color:var(--text);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:600;padding:9px 14px 9px 38px;outline:none;transition:border-color .2s,box-shadow .2s"/>
+      </div>
+    </div>
+
+    <!-- All games -->
+    <div class="sec-head" style="margin-top:26px">
+      <span class="sec-title">🎮 All Games</span>
+      <span class="sec-pill" id="games-pill">8 games</span>
+      <span class="sec-right" id="results-txt" style="margin-left:auto" aria-live="polite"></span>
+    </div>
+    <div class="games-grid" id="games-grid" role="list" aria-label="All games"></div>
+    <div id="empty-state" hidden>
+      <div class="big">🤔</div>
+      <p>No games found!</p>
+      <small>Try a different search or clear your filters.</small>
+    </div>
+
+    <!-- Categories -->
+    <section id="sect-cats" style="margin-top:40px;scroll-margin-top:78px">
+      <div class="sec-head"><span class="sec-title">🗂 Browse by Category</span></div>
+      <div class="cat-grid" id="cat-grid" role="list" aria-label="Browse categories"></div>
+    </section>
+
+    <!-- About -->
+    <div id="about-strip" style="scroll-margin-top:78px">
+      <div class="about-col">
+        <h3>🎓 What Is PlayHive.Net?</h3>
+        <p>A free collection of the best brain-training, skill-building, and creative games — built for kids, loved by everyone. Learning and fun go hand-in-hand here.</p>
+        <p>No accounts. No purchases. No data collection. Just games that make you think, laugh, and level up.</p>
+        <ul class="about-chk">
+          <li><span class="ck">✓</span>100% free, no paywalls, ever</li>
+          <li><span class="ck">✓</span>Zero ads — not now, not ever</li>
+          <li><span class="ck">✓</span>No cookies or analytics</li>
+          <li><span class="ck">✓</span>No autoplay audio or pop-ups</li>
+          <li><span class="ck">✓</span>Open source &amp; self-hostable</li>
+        </ul>
+      </div>
+      <div class="about-col">
+        <h3>👪 For Parents</h3>
+        <p>This site collects <strong style="color:var(--lime)">absolutely no personal data</strong>. No third-party scripts, no tracking pixels. Games run entirely in your browser.</p>
+        <ul class="about-chk">
+          <li><span class="ck">✓</span>No personal data collected</li>
+          <li><span class="ck">✓</span>No third-party scripts or ad networks</li>
+          <li><span class="ck">✓</span>No links that navigate off-site</li>
+          <li><span class="ck">✓</span>Games run in secure sandboxed iframes</li>
+          <li><span class="ck">✓</span>Safe for all children</li>
+        </ul>
+        <div class="add-box">
+          <h4>🛠 How to Add a Game</h4>
+          <ol>
+            <li>Put your game at <code>/games/name/index.html</code></li>
+            <li>Open <code>index.html</code> → find <code>GAMES</code> array</li>
+            <li>Add an entry following the same structure</li>
+            <li>Save — it appears instantly! 🎉</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer role="contentinfo">
+  <div class="footer-inner">
+    <div class="footer-logo">PlayHive</div>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="#about-strip">About</a>
+      <a href="#about-strip">Privacy</a>
+      <a href="#sect-cats">Categories</a>
+      <a href="#about-strip">Add a Game</a>
+    </nav>
+    <p class="footer-tag">Made with <span>❤️</span> for curious kids everywhere</p>
+    <p class="footer-priv">No ads. No cookies. No tracking. No sign-ups. Games run entirely in your browser — your privacy is 100% protected.</p>
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-label="Game player">
+  <div id="modal-box">
+    <div id="modal-header">
+      <div class="modal-dot" aria-hidden="true"></div>
+      <span id="modal-title">Game</span>
+      <div class="modal-actions">
+        <button id="btn-fullscreen" aria-label="Toggle fullscreen">⛶ Fullscreen</button>
+        <button id="btn-close" aria-label="Close game">✕ Exit</button>
+      </div>
+    </div>
+    <div id="modal-loading" aria-live="polite">
+      <div class="spinner"></div>
+      <p>Loading game…</p>
+    </div>
+    <iframe id="game-iframe" sandbox="allow-scripts allow-same-origin" allow="fullscreen" title="Game" tabindex="-1"></iframe>
+  </div>
+</div>
+
+<script>
+/* =====================================================
+   GAME DATA — Add your own games here!
+   Place each game at /games/<id>/index.html
+===================================================== */
+const GAMES = [
+  { id:"snake",        title:"Snake",         description:"Eat food, grow your snake, don't crash!",                   category:"skill",    ageMin:5,  ageMax:12, difficulty:"easy",   thumbnail:"", emoji:"🐍", src:"games/snake/index.html",        featured:true,  new:false, published:true },
+  { id:"2048",         title:"2048",           description:"Slide and combine tiles to reach the magic number!",        category:"numbers",  ageMin:8,  ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/2048/icon.png", emoji:"🔢", src:"games/2048/index.html",         featured:false,  new:false, published:true },
+  { id:"connect-4", title:"Connect 4", description:"Drop your discs and connect four in a row before your opponent!", category:"logic", ageMin:6, ageMax:12, difficulty:"easy", thumbnail:"", emoji:"🔴", src:"games/connect-4/index.html", featured:false, new:true, published:true },
+  { id:"memory-match", title:"Memory Match",   description:"Flip cards and find all the matching pairs!",               category:"memory",   ageMin:5,  ageMax:8,  difficulty:"easy",   thumbnail:"", emoji:"🃏", src:"games/memory-match/index.html", featured:false, new:true,  published:true },
+  { id:"word-scramble",title:"Word Scramble",  description:"Unscramble letters to reveal the hidden word!",             category:"logic",    ageMin:7,  ageMax:12, difficulty:"medium", thumbnail:"", iconSrc:"games/word-scramble/icon.png", emoji:"🔤", src:"games/word-scramble/index.html",featured:false, new:true,  published:true },
+  { id:"paint",        title:"Draw & Paint",   description:"A free canvas — paint whatever you imagine!",              category:"creative", ageMin:5,  ageMax:14, difficulty:"easy",   thumbnail:"", emoji:"🎨", src:"games/paint/index.html",        featured:false, new:false, published:true },
+  { id:"sudoku",       title:"Sudoku",         description:"Fill the grid so every row, column, and box has 1–9.",     category:"numbers",  ageMin:10, ageMax:14, difficulty:"hard",   thumbnail:"", iconSrc:"games/sudoku/icon.png", emoji:"🧩", src:"games/sudoku/index.html",       featured:false, new:false, published:true },
+  { id:"typing-race",  title:"Typing Race",    description:"Type words as fast as you can — beat your best time!",     category:"skill",    ageMin:8,  ageMax:14, difficulty:"medium", thumbnail:"", emoji:"⌨️", src:"games/typing-race/index.html",  featured:false, new:false, published:true },
+  { id:"letter-lock", title:"Letter Lock", description:"Guess the secret word using smart clues before you run out of tries!", category:"logic", ageMin:8, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/letter-lock/icon.png", emoji:"🔐", src:"games/letter-lock/index.html", featured:false, new:false, published:true },
+  { id:"block-drop",   title:"Block Drop",     description:"Rotate and fit falling blocks together to clear lines!", category:"skill",    ageMin:7,  ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/block-drop/icon.png", emoji:"🧱", src:"games/block-drop/index.html", featured:false, new:false,  published:true },
+  { id:"tower-of-hanoi", title:"Tower of Hanoi", description:"Move all the disks to the last tower without putting a big disk on a smaller one!", category:"logic", ageMin:7, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/tower-of-hanoi/icon.png", emoji:"🗼", src:"games/tower-of-hanoi/index.html", featured:false, new:true, published:true },
+  { id:"sky-hopper", title:"Sky Hopper", description:"Tap to keep your ship flying — dodge pipes and see how far you can go!", category:"skill", ageMin:6, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/sky-hopper/icon.png", emoji:"🚀", src:"games/sky-hopper/index.html", featured:true, new:false, published:true },
+  { id:"math-quiz",    title:"Math Quiz",      description:"Race the clock answering math questions!",                  category:"numbers",  ageMin:6,  ageMax:11, difficulty:"easy",   thumbnail:"", emoji:"?", src:"games/math-quiz/index.html",    featured:false,  new:false, published:true },
+  { id:"hungryman", title:"HungryMan", description:"Guess the word before your hungry character eats all the food! Each wrong letter costs a bite!", category:"logic", ageMin:7, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/hungry-man/icon.png", emoji:"🍔", src:"games/hungry-man/index.html", featured:false, new:true, published:true },
+  { id:"tic-tac-toe", title:"Tic-Tac-Toe", description:"Take turns placing Xs and Os — get three in a row to win!", category:"logic", ageMin:5, ageMax:10, difficulty:"easy", thumbnail:"", iconSrc:"games/tic-tac-toe/icon.png", emoji:"❌", src:"games/tic-tac-toe/index.html", featured:false, new:false, published:true },
+  { id:"chess", title:"Chess", description:"Plan your moves, protect your king, and checkmate your opponent!", category:"strategy", ageMin:8, ageMax:14, difficulty:"hard", thumbnail:"", emoji:"♟️", src:"games/chess/index.html", featured:false, new:true, published:true },
+  { id:"nova-smash", title:"Nova Smash", description:"Bounce the ball and smash glowing bricks — clear them all to win!", category:"skill", ageMin:7, ageMax:14, difficulty:"easy", thumbnail:"", emoji:"💥", iconSrc:"games/nova-smash/icon.png", src:"games/nova-smash/index.html", featured:false, new:false, published:true },
+  { id:"galaxy-blaster", title:"Galaxy Blaster", description:"Pilot your ship and blast waves of alien enemies across the stars!", category:"skill", ageMin:7, ageMax:14, difficulty:"medium", thumbnail:"", emoji:"👾", src:"games/galaxy-blaster/index.html", featured:true, new:true, published:true },
+  { id:"minesweeper", title:"Minesweeper", description:"Reveal tiles and avoid hidden mines using logic and clues!", category:"logic", ageMin:8, ageMax:14, difficulty:"medium", thumbnail:"", emoji:"💣", src:"games/minesweeper/index.html", featured:false, new:false, published:true },
+  { id:"pattern-match", title:"Pattern Match", description:"Watch the sequence and repeat it perfectly—how long can you keep up?", category:"memory", ageMin:6, ageMax:14, difficulty:"easy", thumbnail:"", iconSrc:"games/pattern-match/icon.png", emoji:"🌈", src:"games/pattern-match/index.html", featured:false, new:true, published:true },
+  { id:"tile-shift", title:"Tile Shift", description:"Slide tiles around to put the numbers back in the correct order!", category:"logic", ageMin:6, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/tile-shift/icon.png", emoji:"🧩", src:"games/tile-shift/index.html", featured:false, new:true, published:true },
+];
+
+/* Category metadata */
+const CATS = {
+  numbers:  {label:"Numbers",  emoji:"🔢", color:"#057CE5", c1:"#00517A", c2:"#005FB3"},
+  logic:    {label:"Logic",    emoji:"🧩", color:"#7ed321", c1:"#1e4500", c2:"#3d8a00"},
+  memory:   {label:"Memory",   emoji:"🃏", color:"#ff7b00", c1:"#7a3c00", c2:"#b35200"},
+  skill:    {label:"Skill",    emoji:"⌨️", color:"#ff4da6", c1:"#5a0038", c2:"#8b0057"},
+  creative: {label:"Creative", emoji:"🎨", color:"#ff4da6", c1:"#4a0030", c2:"#7a0050"},
+  strategy: {label:"Strategy", emoji:"♟", color:"#a855f7", c1:"#2d1060", c2:"#5b21b6"},
+};
+function cat(k){return CATS[k]||{label:k,emoji:"🎮",color:"#555",c1:"#222",c2:"#444"}}
+
+/* State */
+let fCat="all", fAge="all", fDiff="all", fQ="", lastCard=null;
+
+function pub(){return GAMES.filter(g=>g.published!==false)}
+function getFiltered(){
+  const q=fQ.toLowerCase();
+  return pub().filter(g=>{
+    const mQ=!q||g.title.toLowerCase().includes(q)||g.description.toLowerCase().includes(q)||g.category.includes(q);
+    const mC=fCat==="all"||g.category===fCat;
+    const mD=fDiff==="all"||g.difficulty===fDiff;
+    const mA=fAge==="all"||(()=>{const m={"5-7":[5,7],"8-10":[8,10],"11-14":[11,14]};const[lo,hi]=m[fAge]||[0,99];return g.ageMin<=hi&&g.ageMax>=lo})();
+    return mQ&&mC&&mD&&mA;
+  });
+}
+
+/* Icon Rendering Utility */
+function renderIcon(item) {
+  if (item.iconSrc) {
+    return `
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+        <img src="${item.iconSrc}" 
+          alt="${item.title || item.label} icon"
+          style="width: 100%; height: 100%; object-fit: contain; transform: scale(0.61); pointer-events: none;" />
+      </div>
+    `;
+  }
+  return item.emoji;
+}
+
+/* Build featured card */
+const FCOLS=[["#1a3a00","#2d6600"],["#00101a","#004460"],["#1a0f00","#b35200"],["#1a001a","#5a0070"]];
+function buildFeat(g,i){
+  const c=cat(g.category), col=FCOLS[i%FCOLS.length];
+  const el=document.createElement("div");
+  el.className="feat-card"; el.setAttribute("role","listitem"); el.tabIndex=0;
+  const thumb=g.thumbnail
+    ?`<img class="feat-thumb" src="${g.thumbnail}" alt="${g.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <div class="feat-fallback" style="display:none;--fc1:${col[0]};--fc2:${col[1]}">${renderIcon(g)}</div>`
+    :`<div class="feat-fallback" style="--fc1:${col[0]};--fc2:${col[1]}">${renderIcon(g)}</div>`;
+  el.innerHTML=`${thumb}
+    <div class="feat-overlay"><div class="feat-title">${g.title}</div><div class="feat-sub">${g.description}</div></div>
+    <span class="feat-badge-play">▶ Play</span>
+    ${g.new?'<span class="feat-badge-new">New!</span>':''}`;
+  const open=e=>{e.preventDefault();lastCard=el;openModal(g)};
+  el.addEventListener("click",open);
+  el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")open(e)});
+  return el;
+}
+
+/* Build game card */
+function buildCard(g,i){
+  const c=cat(g.category);
+  const el=document.createElement("article");
+  el.className="gc"; el.setAttribute("role","listitem"); el.tabIndex=0;
+  el.style.setProperty("--i",i);
+  const thumb=g.thumbnail
+    ?`<img src="${g.thumbnail}" alt="${g.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <div class="gc-fallback" style="display:none;--gc1:${c.c1};--gc2:${c.c2}">${renderIcon(g)}</div>`
+    :`<div class="gc-fallback" style="--gc1:${c.c1};--gc2:${c.c2}">${renderIcon(g)}</div>`;
+  const dc=g.difficulty==="easy"?"de":g.difficulty==="medium"?"dm":"dh";
+  el.innerHTML=`
+    <div class="gc-thumb">${thumb}
+      <div class="gc-overlay"><div class="gc-play-btn">▶ Play</div></div>
+      <span class="gc-cat-badge" style="background:${c.color}">${c.label}</span>
+      ${g.new?'<span class="gc-new-badge">New!</span>':''}
+    </div>
+    <div class="gc-info">
+      <div class="gc-title">${g.title}</div>
+      <div class="gc-meta">
+        <span>Ages ${g.ageMin}–${g.ageMax}</span>
+        <span class="gc-dot"></span>
+        <span class="${dc}">${g.difficulty[0].toUpperCase()+g.difficulty.slice(1)}</span>
+      </div>
+    </div>`;
+  const open=e=>{e.preventDefault();lastCard=el;openModal(g)};
+  el.addEventListener("click",open);
+  el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")open(e)});
+  return el;
+}
+
+/* Render featured */
+function renderFeat(){
+  const s=document.getElementById("feat-strip");
+  pub().filter(g=>g.featured).forEach((g,i)=>s.appendChild(buildFeat(g,i)));
+}
+
+/* Render game grid */
+function renderGames(){
+  const grid=document.getElementById("games-grid");
+  const empty=document.getElementById("empty-state");
+  const pill=document.getElementById("games-pill");
+  const txt=document.getElementById("results-txt");
+  const list=getFiltered();
+  grid.innerHTML="";
+  if(list.length===0){grid.hidden=true;empty.hidden=false}
+  else{grid.hidden=false;empty.hidden=true;list.forEach((g,i)=>grid.appendChild(buildCard(g,i)))}
+  pill.textContent=`${list.length} game${list.length!==1?"s":""}`;
+  const filtering=fQ||fCat!=="all"||fAge!=="all"||fDiff!=="all";
+  txt.textContent=filtering?`${list.length} result${list.length!==1?"s":""}` : "";
+}
+
+/* Render categories */
+function renderCats(){
+  const grid=document.getElementById("cat-grid");
+  Object.entries(CATS).forEach(([k,m])=>{
+    const count=pub().filter(g=>g.category===k).length;
+    const el=document.createElement("div");
+    el.className="cat-card"; el.setAttribute("role","listitem"); el.tabIndex=0;
+    el.style.setProperty("--cc-color",m.color);
+    el.innerHTML=`<div class="cat-icon">${renderIcon(m)}</div>
+      <span class="cat-name">${m.label}</span>
+      <span class="cat-count">${count} game${count!==1?"s":""}</span>`;
+    const apply=()=>{fCat=k;syncSidebar();renderGames();document.getElementById("main-content").scrollIntoView({behavior:"smooth"})};
+    el.addEventListener("click",apply);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();apply()}});
+    grid.appendChild(el);
+  });
+}
+
+/* Update sidebar counts */
+function updateCounts(){
+  const p=pub();
+  document.getElementById("sb-all").textContent=p.length;
+  Object.keys(CATS).forEach(k=>{const el=document.getElementById(`sb-${k}`);if(el)el.textContent=p.filter(g=>g.category===k).length});
+}
+
+/* Sync sidebar active states */
+function syncSidebar(){
+  document.querySelectorAll("[data-cat]").forEach(b=>{const a=b.dataset.cat===fCat;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a)});
+  document.querySelectorAll("[data-age]").forEach(b=>{const a=b.dataset.age===fAge;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a)});
+  document.querySelectorAll("[data-diff]").forEach(b=>{const a=b.dataset.diff===fDiff;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a)});
+}
+
+/* Sidebar filter events */
+document.querySelectorAll("[data-cat]").forEach(b=>b.addEventListener("click",()=>{fCat=b.dataset.cat;syncSidebar();renderGames()}));
+document.querySelectorAll("[data-age]").forEach(b=>b.addEventListener("click",()=>{fAge=b.dataset.age;syncSidebar();renderGames()}));
+document.querySelectorAll("[data-diff]").forEach(b=>b.addEventListener("click",()=>{fDiff=b.dataset.diff;syncSidebar();renderGames()}));
+
+/* Search */
+function doSearch(v){fQ=v.trim();renderGames()}
+document.getElementById("nav-search").addEventListener("input",e=>doSearch(e.target.value));
+const mobSearch=document.getElementById("mob-search");
+const mobWrap=document.getElementById("mob-search-wrap");
+mobSearch.addEventListener("input",e=>{doSearch(e.target.value);document.getElementById("nav-search").value=e.target.value});
+function checkMob(){mobWrap.style.display=window.innerWidth<=780?"block":"none"}
+checkMob(); window.addEventListener("resize",checkMob);
+
+/* Hamburger */
+const hamBtn=document.getElementById("ham-btn");
+const mobNav=document.getElementById("mob-nav");
+hamBtn.addEventListener("click",()=>{const o=mobNav.classList.toggle("open");hamBtn.classList.toggle("open",o);hamBtn.setAttribute("aria-expanded",o)});
+mobNav.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{mobNav.classList.remove("open");hamBtn.classList.remove("open");hamBtn.setAttribute("aria-expanded",false)}));
+
+/* Modal */
+const backdrop=document.getElementById("modal-backdrop");
+const modalBox=document.getElementById("modal-box");
+const modalTitle=document.getElementById("modal-title");
+const iframe=document.getElementById("game-iframe");
+const loading=document.getElementById("modal-loading");
+const btnClose=document.getElementById("btn-close");
+const btnFull=document.getElementById("btn-fullscreen");
+
+function openModal(g){
+  modalTitle.textContent=g.title;
+  iframe.setAttribute("title","Play "+g.title);
+  loading.classList.remove("hidden");
+  loading.removeAttribute("aria-hidden");
+  requestAnimationFrame(()=>{iframe.src=g.src});
+  backdrop.classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeModal(){
+  backdrop.classList.remove("open");
+  iframe.src="";
+  document.body.style.overflow="";
+  loading.classList.remove("hidden");
+  loading.removeAttribute("aria-hidden");
+  if(lastCard){lastCard.focus();lastCard=null}
+}
+iframe.addEventListener("load",()=>{
+  if(iframe.src){
+    loading.classList.add("hidden");
+    loading.setAttribute("aria-hidden","true");
+    iframe.focus();
+  }
+});
+btnClose.addEventListener("click",closeModal);
+btnFull.addEventListener("click",()=>iframe.requestFullscreen&&iframe.requestFullscreen().catch(()=>{}));
+backdrop.addEventListener("click",e=>{if(e.target===backdrop)closeModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&backdrop.classList.contains("open"))closeModal()});
+modalBox.addEventListener("keydown",e=>{
+  if(e.key!=="Tab")return;
+  const els=[...modalBox.querySelectorAll('button,[href],[tabindex]:not([tabindex="-1"])')];
+  if(!els.length)return;
+  if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els[els.length-1].focus()}
+  else if(!e.shiftKey&&document.activeElement===els[els.length-1]){e.preventDefault();els[0].focus()}
+});
+
+/* Init */
+renderFeat();
+renderGames();
+renderCats();
+updateCounts();
+document.getElementById("hero-cnt").textContent=pub().length;
+</script>
+</body>
+</html>

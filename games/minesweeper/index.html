@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Minesweeper</title>
+    <style>
+        /* --- CSS Variables for Neon Arcade Dark Mode --- */
+        :root {
+            /* Backgrounds */
+            --bg-body: #0d1b2a;
+            --bg-panel: #132338;
+            --bg-card: #1a2f47;
+            
+            /* Neon Accents */
+            --neon-green: #7ed321;
+            --neon-pink: #ff4da6;
+            --neon-cyan: #00d4ff;
+            --neon-yellow: #ffd60a;
+            --neon-orange: #ff7b00;
+            
+            /* Text & Typography */
+            --text-primary: #e8f1fa;
+            --text-secondary: #7a99bb;
+            --text-hint: #3d5a75;
+            
+            /* Borders */
+            --border-faint: rgba(255, 255, 255, 0.012);
+            
+            /* Shadows */
+            --shadow-board: 0 12px 40px rgba(0, 0, 0, 0.5);
+            --shadow-glow-cyan: 0 8px 28px rgba(0, 212, 255, 0.3);
+            --shadow-glow-pink: 0 8px 28px rgba(255, 77, 166, 0.4);
+            --shadow-glow-green: 0 8px 28px rgba(126, 211, 33, 0.4);
+        }
+
+        /* --- Global Reset & Base Styles --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+		
+		@font-face {
+		  font-family: 'Fredoka One';
+		  src: url("../../fonts/fredokaone.woff2") format("woff2");
+		  font-weight: 400;
+		  font-style: normal;
+		}
+		@font-face {
+		  font-family: 'Nunito';
+		  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+		  font-weight: 200 900;
+		  font-style: normal;
+		}
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            
+            /* Grid Pattern Overlay */
+            background-image:
+                linear-gradient(var(--border-faint) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-faint) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+        }
+
+        /* Ambient Glowing Blobs */
+        .ambient-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.18;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .blob-cyan {
+            width: 300px; height: 300px;
+            background-color: var(--neon-cyan);
+            top: -50px; left: -50px;
+        }
+        .blob-pink {
+            width: 350px; height: 350px;
+            background-color: var(--neon-pink);
+            bottom: -100px; right: -100px;
+        }
+
+        /* Reusable Typography & UI */
+        .hidden { display: none !important; }
+        
+        .heading-display {
+            font-family: 'Fredoka', cursive;
+            font-weight: 700;
+        }
+
+        .micro-copy {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            letter-spacing: 0.12em;
+            color: var(--text-hint);
+        }
+
+        /* Buttons & Pills */
+        button {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--bg-body);
+            background-color: var(--neon-cyan);
+            border: none;
+            border-radius: 100px;
+            padding: 14px 28px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow-cyan);
+            background-color: #33deff;
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 10px rgba(0, 212, 255, 0.2);
+        }
+
+        button.btn-pink {
+            background-color: var(--neon-pink);
+            box-shadow: 0 4px 15px rgba(255, 77, 166, 0.2);
+        }
+        button.btn-pink:hover {
+            box-shadow: var(--shadow-glow-pink);
+            background-color: #ff6eb8;
+        }
+
+        button.btn-outline {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--border-faint);
+            box-shadow: none;
+        }
+        button.btn-outline:hover {
+            border-color: var(--text-secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Main Menu Styles */
+        #menu-screen {
+            background-color: var(--bg-panel);
+            padding: 40px;
+            border-radius: 14px;
+            border: 1px solid var(--border-faint);
+            box-shadow: var(--shadow-board);
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            z-index: 10;
+        }
+
+        #menu-screen h1 {
+            font-size: 2.8rem;
+            color: var(--neon-cyan);
+            margin-bottom: 5px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+        }
+
+        #menu-screen p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 35px;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        select {
+            width: 100%;
+            padding: 14px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            background-color: var(--bg-card);
+            border: 2px solid var(--border-faint);
+            border-radius: 10px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            appearance: none;
+        }
+
+        select:hover, select:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.15);
+        }
+
+        .start-btn { width: 100%; font-size: 1.1rem; }
+
+        /* Game Screen Styles */
+        #game-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--bg-panel);
+            padding: 24px;
+            border-radius: 14px;
+            border: 1px solid var(--border-faint);
+            box-shadow: var(--shadow-board);
+            z-index: 10;
+            max-width: 95vw;
+            max-height: 95vh;
+        }
+
+        /* Top HUD */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 24px;
+            padding: 12px 24px;
+            background-color: var(--bg-card);
+            border-radius: 100px;
+            border: 1px solid var(--border-faint);
+        }
+
+        .stat-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+        }
+
+        .stat-value {
+            font-family: 'Fredoka', cursive;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+            line-height: 1;
+        }
+
+        .hud-btn {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        /* The Grid & Wrapper */
+        .board-wrapper {
+			border-radius: 10px;
+			padding: 4px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			width: 100%;
+		}
+
+        #board {
+            display: grid;
+            gap: 4px;
+            background-color: transparent;
+        }
+
+        /* Individual Tiles */
+        .tile {
+			/* Calculate dynamic max size based on screen width/height and grid gaps */
+			--gap-w: calc((var(--cols) - 1) * 4px);
+			--gap-h: calc((var(--rows) - 1) * 4px);
+			
+			/* 80px accounts for horizontal padding, 180px accounts for the HUD/vertical padding */
+			--max-w: calc((100vw - 80px - var(--gap-w)) / var(--cols));
+			--max-h: calc((100vh - 180px - var(--gap-h)) / var(--rows));
+			
+			/* Take the smallest value: 40px limit, fit to width, or fit to height */
+			width: min(40px, var(--max-w), var(--max-h));
+			height: min(40px, var(--max-w), var(--max-h));
+			
+			/* Scale the emoji/text proportionally */
+			font-size: min(1.4rem, calc(min(var(--max-w), var(--max-h)) * 0.55));
+
+			background-color: var(--bg-card);
+			border: 1px solid var(--border-faint);
+			border-radius: 10%; /* Switched to % so border radius scales cleanly */
+			cursor: pointer;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-family: 'Fredoka', cursive;
+			font-weight: 700;
+			transition: all 0.2s ease;
+		}
+
+        /* Tile Hover State */
+        .tile:hover:not(.revealed) {
+            transform: translateY(-2px) scale(1.05);
+            background-color: #1e3650;
+            border-color: var(--neon-cyan);
+            box-shadow: var(--shadow-glow-cyan);
+            z-index: 2;
+        }
+
+        /* Revealed Tile Styles */
+        .tile.revealed {
+            background-color: var(--bg-panel);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.02);
+            cursor: default;
+            transform: none !important;
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Flag & Mine specifics */
+        .tile.flagged { color: var(--neon-pink); text-shadow: 0 0 10px rgba(255, 77, 166, 0.6); }
+        .tile.mine {
+            background-color: rgba(255, 77, 166, 0.15);
+            border-color: rgba(255, 77, 166, 0.3);
+        }
+        .tile.exploded {
+            background-color: var(--neon-pink) !important;
+            box-shadow: 0 0 20px var(--neon-pink), inset 0 0 10px rgba(0,0,0,0.5) !important;
+            border-color: var(--neon-pink);
+            color: #fff;
+        }
+        .tile.wrong-flag {
+            color: var(--neon-orange);
+            background-color: rgba(255, 123, 0, 0.1);
+        }
+
+        /* Number Colors (Neon Arcade Palette) */
+        .tile[data-num="1"] { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0, 212, 255, 0.5); }
+        .tile[data-num="2"] { color: var(--neon-green); text-shadow: 0 0 8px rgba(126, 211, 33, 0.5); }
+        .tile[data-num="3"] { color: var(--neon-pink); text-shadow: 0 0 8px rgba(255, 77, 166, 0.5); }
+        .tile[data-num="4"] { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255, 214, 10, 0.5); }
+        .tile[data-num="5"] { color: var(--neon-orange); text-shadow: 0 0 8px rgba(255, 123, 0, 0.5); }
+        .tile[data-num="6"] { color: #d946ef; text-shadow: 0 0 8px rgba(217, 70, 239, 0.5); }
+        .tile[data-num="7"] { color: #f43f5e; text-shadow: 0 0 8px rgba(244, 63, 94, 0.5); }
+        .tile[data-num="8"] { color: #ef4444; text-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+
+        /* Animations */
+        @keyframes popIn {
+            0% { transform: scale(0.85); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Overlay / Game Over Modal (Glassmorphism) */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(13, 27, 42, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #modal {
+            background-color: var(--bg-panel);
+            padding: 40px;
+            border-radius: 14px;
+            border: 1px solid var(--border-faint);
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            max-width: 90%;
+            width: 380px;
+        }
+
+        #modal h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        #modal p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        .modal-btns button {
+            flex: 1;
+        }
+		
+		.difficulty-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .difficulty-btns button {
+            width: 100%;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <!-- Ambient Glows -->
+    <div class="ambient-blob blob-cyan"></div>
+    <div class="ambient-blob blob-pink"></div>
+
+    <!-- Main Menu -->
+    <div id="menu-screen">
+        <h1 class="heading-display">MINESWEEPER</h1>
+        
+        <div class="micro-copy" style="margin-bottom: 20px;">Select Protocol</div>
+        
+        <div class="difficulty-btns">
+            <button onclick="initGame('easy')">Easy (9x9)</button>
+            <button class="btn-pink" onclick="initGame('medium')">Medium (12x12)</button>
+            <button class="btn-outline" onclick="initGame('hard')">Hard (16x16)</button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden">
+        <div class="hud">
+				
+			<div class="stat-box">
+				<span class="micro-copy">Mines</span>
+				<span id="flag-count" class="stat-value">0</span>
+			</div>
+			
+			<div class="stat-box">
+				<span class="micro-copy">Time</span>
+				<span id="timer" class="stat-value">000</span>
+			</div>
+			
+			<button class="hud-btn btn-outline" onclick="returnToMenu()">MENU</button>
+		</div>
+        
+        <div class="board-wrapper">
+            <div id="board"></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="overlay" class="hidden">
+        <div id="modal">
+            <h2 id="modal-title" class="heading-display">System Failure</h2>
+            <p id="modal-desc">You hit a mine.</p>
+            <div class="modal-btns">
+                <button class="btn-outline" onclick="returnToMenu()">Menu</button>
+                <button onclick="initGame()">Retry</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- Game Configuration & State --- */
+        const config = {
+            easy:   { rows: 9,  cols: 9,  mines: 10 },
+            medium: { rows: 12, cols: 12, mines: 25 },
+            hard:   { rows: 16, cols: 16, mines: 40 }
+        };
+
+        let state = {
+            rows: 0,
+            cols: 0,
+            totalMines: 0,
+            board: [],
+            flagsPlaced: 0,
+            revealedCount: 0,
+            isGameOver: false,
+            isFirstClick: true,
+            timerInterval: null,
+            timeElapsed: 0
+        };
+
+        /* --- DOM Elements --- */
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const overlay = document.getElementById('overlay');
+        const boardEl = document.getElementById('board');
+        const flagCountEl = document.getElementById('flag-count');
+        const timerEl = document.getElementById('timer');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+
+        /* --- Initialization --- */
+        let currentDifficulty = 'easy'; // Remembers the difficulty for restarts
+
+        function initGame(selectedDifficulty) {
+            // If a difficulty was clicked in the menu, update the current difficulty
+            if (selectedDifficulty) {
+                currentDifficulty = selectedDifficulty;
+            }
+            
+            const settings = config[currentDifficulty];
+            
+            state = {
+                rows: settings.rows,
+                cols: settings.cols,
+                totalMines: settings.mines,
+                board: [],
+                flagsPlaced: 0,
+                revealedCount: 0,
+                isGameOver: false,
+                isFirstClick: true,
+                timerInterval: null,
+                timeElapsed: 0
+            };
+
+            flagCountEl.innerText = state.totalMines;
+            timerEl.innerText = '000';
+            stopTimer();
+            
+            menuScreen.classList.add('hidden');
+            overlay.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+
+            buildGrid();
+        }
+
+        function returnToMenu() {
+            stopTimer();
+            gameScreen.classList.add('hidden');
+            overlay.classList.add('hidden');
+            menuScreen.classList.remove('hidden');
+        }
+
+        /* --- Board Generation --- */
+        function buildGrid() {
+			// Change 'auto' to 'max-content' so they scale tightly 
+			boardEl.style.gridTemplateColumns = `repeat(${state.cols}, max-content)`;
+			boardEl.style.gridTemplateRows = `repeat(${state.rows}, max-content)`;
+			
+			// NEW: Pass the row and col count directly into CSS variables
+			boardEl.style.setProperty('--cols', state.cols);
+			boardEl.style.setProperty('--rows', state.rows);
+			
+			boardEl.innerHTML = ''; 
+
+			for (let r = 0; r < state.rows; r++) {
+                let row = [];
+                for (let c = 0; c < state.cols; c++) {
+                    row.push({
+                        isMine: false,
+                        isRevealed: false,
+                        isFlagged: false,
+                        neighborMines: 0,
+                        r: r,
+                        c: c
+                    });
+
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.dataset.r = r;
+                    tile.dataset.c = c;
+                    
+                    // Interaction listeners
+                    tile.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) handleLeftClick(r, c); // Left click
+                        else if (e.button === 2) handleRightClick(r, c); // Right click
+                    });
+                    
+                    // Touch support for long press (flag) vs tap
+                    let touchTimer;
+                    tile.addEventListener('touchstart', (e) => {
+                        if(state.isGameOver) return;
+                        e.preventDefault(); // prevent mouse emulation
+                        touchTimer = setTimeout(() => {
+                            handleRightClick(r, c);
+                            touchTimer = null;
+                        }, 400); // 400ms hold to flag
+                    });
+                    tile.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            handleLeftClick(r, c);
+                        }
+                    });
+
+                    boardEl.appendChild(tile);
+                }
+                state.board.push(row);
+            }
+        }
+
+        /* --- Core Mechanics --- */
+        function placeMinesAndCalculateNeighbors(firstR, firstC) {
+            let minesToPlace = state.totalMines;
+            
+            while (minesToPlace > 0) {
+                let r = Math.floor(Math.random() * state.rows);
+                let c = Math.floor(Math.random() * state.cols);
+                
+                // Safe zone 3x3 around first click
+                let isSafeZone = Math.abs(r - firstR) <= 1 && Math.abs(c - firstC) <= 1;
+                
+                if (!state.board[r][c].isMine && !isSafeZone) {
+                    state.board[r][c].isMine = true;
+                    minesToPlace--;
+                }
+            }
+
+            for (let r = 0; r < state.rows; r++) {
+                for (let c = 0; c < state.cols; c++) {
+                    if (!state.board[r][c].isMine) {
+                        state.board[r][c].neighborMines = countNeighbors(r, c);
+                    }
+                }
+            }
+        }
+
+        function countNeighbors(r, c) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    if (isValid(nr, nc) && state.board[nr][nc].isMine) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function isValid(r, c) {
+            return r >= 0 && r < state.rows && c >= 0 && c < state.cols;
+        }
+
+        /* --- Interaction Handling --- */
+        function handleLeftClick(r, c) {
+            if (state.isGameOver) return;
+            let cell = state.board[r][c];
+            
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            if (state.isFirstClick) {
+                state.isFirstClick = false;
+                placeMinesAndCalculateNeighbors(r, c);
+                startTimer();
+            }
+
+            if (cell.isMine) {
+                triggerLoss(r, c);
+            } else {
+                revealCell(r, c);
+                checkWinCondition();
+            }
+        }
+
+        function handleRightClick(r, c) {
+            if (state.isGameOver || state.isFirstClick) return;
+            let cell = state.board[r][c];
+            
+            if (cell.isRevealed) return;
+
+            let tileEl = getTileEl(r, c);
+
+            if (cell.isFlagged) {
+                cell.isFlagged = false;
+                state.flagsPlaced--;
+                tileEl.innerText = '';
+                tileEl.classList.remove('flagged');
+            } else {
+                cell.isFlagged = true;
+                state.flagsPlaced++;
+                tileEl.innerText = '🚩';
+                tileEl.classList.add('flagged');
+            }
+            
+            flagCountEl.innerText = state.totalMines - state.flagsPlaced;
+        }
+
+        /* --- Tile Revealing & Flood Fill --- */
+        function revealCell(r, c) {
+            let cell = state.board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            cell.isRevealed = true;
+            state.revealedCount++;
+            
+            let tileEl = getTileEl(r, c);
+            tileEl.classList.add('revealed');
+
+            if (cell.neighborMines > 0) {
+                tileEl.innerText = cell.neighborMines;
+                tileEl.setAttribute('data-num', cell.neighborMines);
+            } else {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        let nr = r + dr;
+                        let nc = c + dc;
+                        if (isValid(nr, nc)) {
+                            revealCell(nr, nc); 
+                        }
+                    }
+                }
+            }
+        }
+
+        /* --- Win/Loss Logic --- */
+        function checkWinCondition() {
+            const totalSafeTiles = (state.rows * state.cols) - state.totalMines;
+            if (state.revealedCount === totalSafeTiles) {
+                triggerWin();
+            }
+        }
+
+        function triggerWin() {
+            state.isGameOver = true;
+            stopTimer();
+            
+            // Auto flag remaining mines
+            for(let r=0; r<state.rows; r++) {
+                for(let c=0; c<state.cols; c++) {
+                    let cell = state.board[r][c];
+                    if(cell.isMine && !cell.isFlagged) {
+                        let tileEl = getTileEl(r, c);
+                        tileEl.innerText = '🚩';
+                        tileEl.classList.add('flagged');
+                    }
+                }
+            }
+            flagCountEl.innerText = '0';
+
+            setTimeout(() => {
+                modalTitle.innerText = "SYSTEM SECURED";
+                modalTitle.style.color = "var(--neon-green)";
+                modalTitle.style.textShadow = "0 0 20px rgba(126, 211, 33, 0.4)";
+                modalDesc.innerText = `Threats neutralized in ${state.timeElapsed} seconds.`;
+                overlay.classList.remove('hidden');
+            }, 500);
+        }
+
+        function triggerLoss(clickedR, clickedC) {
+            state.isGameOver = true;
+            stopTimer();
+
+            for (let r = 0; r < state.rows; r++) {
+                for (let c = 0; c < state.cols; c++) {
+                    let cell = state.board[r][c];
+                    let tileEl = getTileEl(r, c);
+                    
+                    if (cell.isMine) {
+                        tileEl.classList.add('revealed', 'mine');
+                        if (r === clickedR && c === clickedC) {
+                            tileEl.classList.add('exploded'); 
+                            tileEl.innerText = '💥';
+                        } else if (!cell.isFlagged) {
+                            tileEl.innerText = '💣';
+                        }
+                    } else if (cell.isFlagged) {
+                        tileEl.classList.add('revealed', 'wrong-flag');
+                        tileEl.innerText = '❌';
+                    }
+                }
+            }
+
+            setTimeout(() => {
+                modalTitle.innerText = "SYSTEM FAILURE";
+                modalTitle.style.color = "var(--neon-pink)";
+                modalTitle.style.textShadow = "0 0 20px rgba(255, 77, 166, 0.4)";
+                modalDesc.innerText = "Critical breach detected. Reboot required.";
+                overlay.classList.remove('hidden');
+            }, 1000);
+        }
+
+        /* --- Helpers --- */
+        function getTileEl(r, c) {
+            return boardEl.children[r * state.cols + c];
+        }
+
+        function startTimer() {
+            state.timerInterval = setInterval(() => {
+                state.timeElapsed++;
+                timerEl.innerText = Math.min(state.timeElapsed, 999).toString().padStart(3, '0');
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+                state.timerInterval = null;
+            }
+        }
+    </script>
+</body>
+</html>

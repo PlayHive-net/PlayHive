@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tower of Hanoi — PlayHive.Net</title>
+  <style>
+    :root {
+      --navy:       #0d1b2a;
+      --navy-mid:   #132338;
+      --navy-card:  #1a2f47;
+      --navy-light: #1f3a57;
+      --lime:       #7ed321;
+      --lime-dark:  #5fab00;
+      --lime-glow:  rgba(126,211,33,0.18);
+      --orange:     #ff7b00;
+      --cyan:       #00d4ff;
+      --pink:       #ff4da6;
+      --yellow:     #ffd60a;
+      --text:       #e8f1fa;
+      --text-dim:   #7a99bb;
+      --text-dark:  #3d5a75;
+      --border:     rgba(255,255,255,0.08);
+      --border-lime:rgba(126,211,33,0.3);
+      --radius:     10px;
+    }
+	
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      position: relative;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.18;
+    }
+    .glow-blob-1 { width: 350px; height: 350px; background: var(--lime); top: -80px; left: -80px; }
+    .glow-blob-2 { width: 280px; height: 280px; background: var(--orange); bottom: -60px; right: -60px; }
+
+    /* ── WRAPPER ── */
+    .game-wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* ── HEADER ── */
+    .game-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .game-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.5rem;
+      color: #fff;
+      letter-spacing: .03em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .game-title span { font-size: 1.4rem; }
+
+    .score-row { display: flex; gap: 10px; }
+    .score-box {
+      background: var(--navy-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      text-align: center;
+      min-width: 72px;
+    }
+    .score-box.highlight { border-color: var(--border-lime); }
+    .score-label {
+      font-size: .6rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-dark);
+    }
+    .score-val {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.4rem;
+      line-height: 1.1;
+      color: var(--lime);
+    }
+    .score-box:not(.highlight) .score-val { color: var(--text-dim); }
+
+    /* ── CANVAS CONTAINER ── */
+    .canvas-wrap {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid var(--border-lime);
+      box-shadow: 0 0 0 1px rgba(126,211,33,.08),
+                  0 20px 60px rgba(0,0,0,.6),
+                  0 0 40px rgba(126,211,33,.07);
+      touch-action: none;
+    }
+
+    canvas { display: block; cursor: pointer; }
+
+    /* ── OVERLAY SCREENS ── */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: rgba(13,27,42,0.93);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      text-align: center;
+      padding: 24px;
+      transition: opacity .25s;
+    }
+    .overlay.hidden { display: none; }
+
+    .overlay-emoji { font-size: 3.2rem; line-height: 1; }
+    .overlay-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 2rem;
+      color: #fff;
+      letter-spacing: .03em;
+    }
+    .overlay-title em  { font-style: normal; color: var(--lime); }
+    .overlay-title .bad { color: var(--orange); }
+    .overlay-sub {
+      font-size: .85rem;
+      color: var(--text-dim);
+      font-weight: 700;
+      max-width: 280px;
+      line-height: 1.55;
+    }
+    .overlay-score {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.2rem;
+      color: var(--lime);
+    }
+
+    .btn-play {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.05rem;
+      letter-spacing: .04em;
+      padding: 12px 30px;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      background: var(--lime);
+      color: var(--navy);
+      box-shadow: 0 4px 20px rgba(126,211,33,.4);
+      transition: all .2s;
+    }
+    .btn-play:hover {
+      background: var(--lime-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(126,211,33,.5);
+    }
+    .btn-play:active { transform: translateY(0); }
+
+    /* difficulty row inside overlay */
+    .diff-row {
+      display: flex;
+      gap: 8px;
+    }
+    .diff-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: .85rem;
+      padding: 8px 18px;
+      border-radius: 100px;
+      border: 2px solid var(--border);
+      background: var(--navy-card);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .diff-btn:hover,
+    .diff-btn.active {
+      border-color: var(--lime);
+      color: var(--lime);
+      background: var(--lime-glow);
+    }
+
+    /* ── LEVEL BADGE ── */
+    .level-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--navy-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: .72rem;
+      font-weight: 800;
+      color: var(--text-dim);
+    }
+    .level-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--lime);
+    }
+
+    /* ── HINT ── */
+    .hint {
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      letter-spacing: .04em;
+    }
+
+    /* Animations */
+    @keyframes popIn {
+      from { opacity:0; transform:scale(0.85) translateY(12px); }
+      to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .overlay:not(.hidden) { animation: popIn .3s ease both; }
+
+    @keyframes shake {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-6px)}
+      40%{transform:translateX(6px)}
+      60%{transform:translateX(-4px)}
+      80%{transform:translateX(4px)}
+    }
+    .shake { animation: shake .35s ease both; }
+
+    @keyframes victoryPulse {
+      0%,100%{box-shadow:0 0 0 1px rgba(126,211,33,.08), 0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(126,211,33,.07);}
+      50%{box-shadow:0 0 0 4px rgba(126,211,33,.3), 0 20px 60px rgba(0,0,0,.6), 0 0 80px rgba(126,211,33,.35);}
+    }
+    .victory { animation: victoryPulse .7s ease infinite; }
+
+    @media (max-width: 600px) {
+      .game-title { font-size: 1.15rem; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="glow-blob glow-blob-1"></div>
+<div class="glow-blob glow-blob-2"></div>
+
+<div class="game-wrapper">
+
+  <!-- Header -->
+  <div class="game-header">
+    <div class="game-title">
+<img 
+  src="./icon.png" 
+  width="28" 
+  height="28" 
+  style="display:inline-block;vertical-align:middle;flex-shrink:0"
+/>
+      Tower of Hanoi
+    </div>
+    <div class="score-row">
+      <div class="score-box highlight">
+        <div class="score-label">Moves</div>
+        <div class="score-val" id="moves-display">0</div>
+      </div>
+      <div class="score-box">
+        <div class="score-label">Best</div>
+        <div class="score-val" id="best-display">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+
+    <!-- Start screen -->
+    <div class="overlay" id="screen-start">
+      <div class="overlay-title">Tower of Hanoi</div>
+      <div class="overlay-sub">Move all discs to the rightmost peg. You can only place a smaller disc on a larger one!</div>
+      <div class="diff-row">
+        <button class="diff-btn active" data-discs="3">3 Discs</button>
+        <button class="diff-btn" data-discs="4">4 Discs</button>
+        <button class="diff-btn" data-discs="5">5 Discs</button>
+        <button class="diff-btn" data-discs="6">6 Discs</button>
+      </div>
+      <button class="btn-play" id="btn-start">▶ Start Game</button>
+    </div>
+
+    <!-- Win screen -->
+    <div class="overlay hidden" id="screen-win">
+      <div class="overlay-emoji">🏆</div>
+      <div class="overlay-title"><em>Solved!</em></div>
+      <div class="overlay-score" id="win-score"></div>
+      <div class="overlay-sub" id="win-msg"></div>
+      <button class="btn-play" id="btn-restart">↺ Play Again</button>
+    </div>
+  </div>
+
+  <!-- Status row -->
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+    <div class="level-badge">
+      <div class="level-dot"></div>
+      <span id="level-label">3 Discs · Min: 7 moves</span>
+    </div>
+    <div class="hint">Click a peg to pick up / place &nbsp;·&nbsp; R to reset</div>
+  </div>
+
+</div>
+
+<script>
+/* ── CANVAS SETUP ── */
+const canvas   = document.getElementById("canvas");
+const ctx      = canvas.getContext("2d");
+const canvasWrap = document.getElementById("canvas-wrap");
+
+const W = 520, H = 300;
+canvas.width  = W;
+canvas.height = H;
+
+/* ── PALETTE ── */
+const C = {
+  bg:        "#0d1b2a",
+  gridLine:  "rgba(255,255,255,0.022)",
+  peg:       "#1f3a57",
+  pegBorder: "#2e5278",
+  base:      "#132338",
+  baseBorder:"#1f3a57",
+  selected:  "rgba(126,211,33,0.22)",
+  selectedBorder: "#7ed321",
+};
+
+/* Disc colours (lime → cyan → pink → orange → yellow) */
+const DISC_COLORS = [
+  { main:"#7ed321", dark:"#5fab00", glow:"rgba(126,211,33,0.5)" },
+  { main:"#00d4ff", dark:"#0099bb", glow:"rgba(0,212,255,0.5)"  },
+  { main:"#ff4da6", dark:"#cc2d80", glow:"rgba(255,77,166,0.5)" },
+  { main:"#ff7b00", dark:"#c55e00", glow:"rgba(255,123,0,0.5)"  },
+  { main:"#ffd60a", dark:"#c4a400", glow:"rgba(255,214,10,0.5)" },
+  { main:"#b97aff", dark:"#8040cc", glow:"rgba(185,122,255,0.5)"},
+];
+
+/* ── STATE ── */
+let pegs, selected, moves, numDiscs, state, animDisc, animProgress, animFrom, animTo;
+// state: 'start' | 'playing' | 'won'
+let best = {};  // keyed by numDiscs
+
+const DISC_H    = 22;
+const MIN_DISC_W= 28;
+const BASE_Y    = H - 50;
+const PEG_H     = 180;
+const BASE_H    = 16;
+const BASE_W    = 130;
+
+/* Peg x-centres */
+const PEG_X = [W * 0.185, W * 0.5, W * 0.815];
+const PEG_W = 12;
+
+/* ── ELEMENTS ── */
+const movesEl    = document.getElementById("moves-display");
+const bestEl     = document.getElementById("best-display");
+const levelEl    = document.getElementById("level-label");
+const screenStart= document.getElementById("screen-start");
+const screenWin  = document.getElementById("screen-win");
+const winScore   = document.getElementById("win-score");
+const winMsg     = document.getElementById("win-msg");
+
+let selectedDiscs = 3;
+
+/* ── DIFFICULTY BUTTONS ── */
+document.querySelectorAll(".diff-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedDiscs = parseInt(btn.dataset.discs);
+  });
+});
+
+/* ── STORAGE ── */
+function loadBest() {
+  try { return JSON.parse(localStorage.getItem("hanoi_best") || "{}"); } catch { return {}; }
+}
+function saveBest(n, v) {
+  best[n] = v;
+  try { localStorage.setItem("hanoi_best", JSON.stringify(best)); } catch {}
+}
+
+/* ── INIT ── */
+function init(n) {
+  numDiscs = n;
+  pegs     = [[], [], []];
+  for (let i = n; i >= 1; i--) pegs[0].push(i);
+  selected  = null;
+  moves     = 0;
+  state     = "playing";
+  animDisc  = null;
+  movesEl.textContent = 0;
+  const minMoves = Math.pow(2, n) - 1;
+  levelEl.textContent = `${n} Discs · Min: ${minMoves} moves`;
+  updateBestDisplay();
+}
+
+function updateBestDisplay() {
+  const b = best[numDiscs];
+  bestEl.textContent = b !== undefined ? b : "—";
+}
+
+/* ── DISC GEOMETRY ── */
+function discWidth(size) {
+  const maxW = BASE_W - 12;
+  return MIN_DISC_W + (size - 1) * ((maxW - MIN_DISC_W) / (numDiscs - 1 || 1));
+}
+
+function discY(pegIndex, stackPos) {
+  return BASE_Y - BASE_H - DISC_H * (stackPos + 1) + DISC_H * 0.08;
+}
+
+/* ── DRAW ── */
+let glowAnim = 0;
+
+function draw() {
+  glowAnim += 0.04;
+
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = C.gridLine;
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 26) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += 26) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Draw pegs & bases
+  PEG_X.forEach((px, pi) => {
+    // Hover / selected highlight
+    if (selected !== null && selected !== pi) {
+      const top = pegs[pi].length > 0 ? pegs[pi][pegs[pi].length - 1] : Infinity;
+      const pickedDisc = pegs[selected][pegs[selected].length - 1];
+      if (pickedDisc < top || pegs[pi].length === 0) {
+        // Valid drop target
+        ctx.fillStyle = "rgba(126,211,33,0.05)";
+        ctx.beginPath();
+        ctx.roundRect(px - BASE_W/2, BASE_Y - PEG_H, BASE_W, PEG_H + BASE_H, 8);
+        ctx.fill();
+      }
+    }
+
+    // Selected peg glow
+    if (selected === pi) {
+      ctx.fillStyle = C.selected;
+      ctx.beginPath();
+      ctx.roundRect(px - BASE_W/2, BASE_Y - PEG_H, BASE_W, PEG_H + BASE_H, 8);
+      ctx.fill();
+      ctx.strokeStyle = C.selectedBorder;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(px - BASE_W/2, BASE_Y - PEG_H, BASE_W, PEG_H + BASE_H, 8);
+      ctx.stroke();
+    }
+
+    // Base platform
+    const bGrad = ctx.createLinearGradient(px - BASE_W/2, BASE_Y - BASE_H, px + BASE_W/2, BASE_Y);
+    bGrad.addColorStop(0, "#1f3a57");
+    bGrad.addColorStop(1, "#0f2236");
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    ctx.roundRect(px - BASE_W/2, BASE_Y - BASE_H, BASE_W, BASE_H + 8, [0, 0, 6, 6]);
+    ctx.fill();
+    ctx.strokeStyle = C.baseBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(px - BASE_W/2, BASE_Y - BASE_H, BASE_W, BASE_H + 8, [0, 0, 6, 6]);
+    ctx.stroke();
+
+    // Peg rod
+    const pGrad = ctx.createLinearGradient(px - PEG_W/2, 0, px + PEG_W/2, 0);
+    pGrad.addColorStop(0, "#2e5278");
+    pGrad.addColorStop(0.5, "#3d6b99");
+    pGrad.addColorStop(1, "#1f3a57");
+    ctx.fillStyle = pGrad;
+    ctx.beginPath();
+    ctx.roundRect(px - PEG_W/2, BASE_Y - PEG_H, PEG_W, PEG_H - BASE_H, [4, 4, 0, 0]);
+    ctx.fill();
+
+    // Peg label
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.font = "bold 11px Nunito, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(["A","B","C"][pi], px, BASE_Y + 14);
+  });
+
+  // Draw discs per peg
+  pegs.forEach((peg, pi) => {
+    peg.forEach((disc, si) => {
+      // If this is the floating disc (selected from this peg, topmost)
+      const isLifted = selected === pi && si === peg.length - 1;
+      drawDisc(disc, pi, si, isLifted, false);
+    });
+  });
+
+  // Floating disc above selected peg (lifted animation)
+  if (selected !== null && pegs[selected].length > 0) {
+    const disc = pegs[selected][pegs[selected].length - 1];
+    const px   = PEG_X[selected];
+    const pulse = Math.sin(glowAnim * 3) * 0.12;
+    drawDiscAt(disc, px, BASE_Y - PEG_H - 18, 1 + pulse);
+  }
+}
+
+function drawDisc(disc, pegIdx, stackPos, lifted, dim) {
+  if (lifted) return; // drawn separately as floating
+  const px = PEG_X[pegIdx];
+  const dy = discY(pegIdx, stackPos);
+  drawDiscAt(disc, px, dy + DISC_H / 2, 1.0, dim);
+}
+
+function drawDiscAt(disc, cx, cy, scale, dim) {
+  const w = discWidth(disc) * scale;
+  const h = DISC_H * 0.82;
+  const col = DISC_COLORS[(disc - 1) % DISC_COLORS.length];
+
+  // Glow
+  const gGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * 0.7);
+  gGrad.addColorStop(0, col.glow.replace("0.5", dim ? "0.12" : "0.35"));
+  gGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = gGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, w * 0.7, h * 1.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body gradient
+  const bGrad = ctx.createLinearGradient(cx - w/2, cy - h/2, cx + w/2, cy + h/2);
+  bGrad.addColorStop(0, dim ? "#1a2f47" : col.main);
+  bGrad.addColorStop(1, dim ? "#0f1f30" : col.dark);
+  ctx.fillStyle = bGrad;
+  ctx.beginPath();
+  ctx.roundRect(cx - w/2, cy - h/2, w, h, Math.min(h/2, 10));
+  ctx.fill();
+
+  // Shine
+  const sGrad = ctx.createLinearGradient(cx - w/2, cy - h/2, cx, cy);
+  sGrad.addColorStop(0, dim ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.22)");
+  sGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = sGrad;
+  ctx.beginPath();
+  ctx.roundRect(cx - w/2, cy - h/2, w, h/2, [Math.min(h/2, 10), Math.min(h/2, 10), 0, 0]);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = dim ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(cx - w/2, cy - h/2, w, h, Math.min(h/2, 10));
+  ctx.stroke();
+
+  // Disc number
+  if (!dim) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.font = `bold ${Math.max(10, h * 0.65)}px Fredoka One, cursive`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(disc, cx, cy + 1);
+  }
+}
+
+/* ── INTERACTION ── */
+function pegClicked(pi) {
+  if (state !== "playing") return;
+
+  if (selected === null) {
+    // Pick up from this peg
+    if (pegs[pi].length === 0) return;
+    selected = pi;
+  } else {
+    if (selected === pi) {
+      // Deselect
+      selected = null;
+    } else {
+      // Try to place
+      const disc = pegs[selected][pegs[selected].length - 1];
+      const target = pegs[pi];
+      if (target.length === 0 || target[target.length - 1] > disc) {
+        // Valid move
+        pegs[pi].push(pegs[selected].pop());
+        moves++;
+        movesEl.textContent = moves;
+        selected = null;
+        checkWin();
+      } else {
+        // Invalid — shake
+        canvasWrap.classList.remove("shake");
+        void canvasWrap.offsetWidth;
+        canvasWrap.classList.add("shake");
+      }
+    }
+  }
+  draw();
+}
+
+function xToPeg(x) {
+  // Map click x to nearest peg
+  let best = 0, bestDist = Infinity;
+  PEG_X.forEach((px, i) => {
+    const d = Math.abs(x - px);
+    if (d < bestDist) { bestDist = d; best = i; }
+  });
+  return best;
+}
+
+canvas.addEventListener("click", e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const x = (e.clientX - rect.left) * scaleX;
+  pegClicked(xToPeg(x));
+});
+
+canvas.addEventListener("touchend", e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const x = (e.changedTouches[0].clientX - rect.left) * scaleX;
+  pegClicked(xToPeg(x));
+}, { passive: false });
+
+/* ── WIN CHECK ── */
+function checkWin() {
+  if (pegs[2].length === numDiscs) {
+    state = "won";
+    const minMoves = Math.pow(2, numDiscs) - 1;
+    const b = best[numDiscs];
+    const isRecord = b === undefined || moves <= b;
+    if (isRecord) saveBest(numDiscs, moves);
+    updateBestDisplay();
+
+    winScore.textContent = `Solved in ${moves} move${moves !== 1 ? "s" : ""}!`;
+    const optimal = moves === minMoves;
+    winMsg.textContent = optimal
+      ? "🌟 Perfect — optimal solution!"
+      : isRecord
+        ? `🎉 New best! Minimum possible is ${minMoves}.`
+        : `Minimum possible is ${minMoves} moves. Can you beat your best?`;
+
+    canvasWrap.classList.add("victory");
+    draw();
+    setTimeout(() => screenWin.classList.remove("hidden"), 400);
+  }
+}
+
+/* ── KEYBOARD ── */
+document.addEventListener("keydown", e => {
+  if (e.key === "r" || e.key === "R") {
+    if (state === "playing") {
+      selected = null;
+      init(numDiscs);
+      draw();
+    }
+    return;
+  }
+  if (e.key === "1") pegClicked(0);
+  if (e.key === "2") pegClicked(1);
+  if (e.key === "3") pegClicked(2);
+});
+
+/* ── BUTTONS ── */
+document.getElementById("btn-start").addEventListener("click", () => {
+  screenStart.classList.add("hidden");
+  canvasWrap.classList.remove("victory");
+  best = loadBest();
+  init(selectedDiscs);
+  draw();
+  startRenderLoop();
+});
+
+document.getElementById("btn-restart").addEventListener("click", () => {
+  screenWin.classList.add("hidden");
+  canvasWrap.classList.remove("victory");
+  screenStart.classList.remove("hidden");
+  state = "start";
+});
+
+/* ── RENDER LOOP (for floating disc pulse) ── */
+let rafId = null;
+function startRenderLoop() {
+  if (rafId) cancelAnimationFrame(rafId);
+  function loop() {
+    if (state === "playing") draw();
+    rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ── IDLE DRAW ── */
+function drawIdle() {
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = C.gridLine;
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 26) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += 26) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // Draw a static preview with 3 discs on peg 0
+  numDiscs = 3;
+  pegs = [[3,2,1], [], []];
+  selected = null;
+  PEG_X.forEach((px, pi) => {
+    const bGrad = ctx.createLinearGradient(px - 65, BASE_Y - BASE_H, px + 65, BASE_Y);
+    bGrad.addColorStop(0, "#1f3a57"); bGrad.addColorStop(1, "#0f2236");
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    ctx.roundRect(px - 65, BASE_Y - BASE_H, 130, BASE_H + 8, [0,0,6,6]);
+    ctx.fill();
+    const pGrad = ctx.createLinearGradient(px - 6, 0, px + 6, 0);
+    pGrad.addColorStop(0, "#2e5278"); pGrad.addColorStop(0.5, "#3d6b99"); pGrad.addColorStop(1, "#1f3a57");
+    ctx.fillStyle = pGrad;
+    ctx.beginPath();
+    ctx.roundRect(px - 6, BASE_Y - PEG_H, 12, PEG_H - BASE_H, [4,4,0,0]);
+    ctx.fill();
+  });
+  pegs[0].forEach((disc, si) => drawDisc(disc, 0, si, false, false));
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.font = "bold 11px Nunito, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  PEG_X.forEach((px, pi) => ctx.fillText(["A","B","C"][pi], px, BASE_Y + 14));
+}
+
+best = loadBest();
+drawIdle();
+state = "start";
+</script>
+</body>
+</html>

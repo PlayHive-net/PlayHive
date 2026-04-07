@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Letter Lock — PlayHive</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:        #0d1b2a;
+      --navy-mid:    #132338;
+      --navy-card:   #1a2f47;
+      --navy-light:  #1f3a57;
+      --lime:        #7ed321;
+      --lime-dark:   #5fab00;
+      --lime-glow:   rgba(126,211,33,0.18);
+      --orange:      #ff7b00;
+      --cyan:        #00d4ff;
+      --pink:        #ff4da6;
+      --yellow:      #ffd60a;
+      --text:        #e8f1fa;
+      --text-dim:    #7a99bb;
+      --text-dark:   #3d5a75;
+      --border:      rgba(255,255,255,0.08);
+      --border-lime: rgba(126,211,33,0.3);
+      --radius:      10px;
+      --radius-lg:   16px;
+    }
+	
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+
+	html, body { 
+      height: 100%; 
+      width: 100%; 
+      overflow: hidden; /* Forcibly prevents all scrollbars */
+      margin: 0; 
+      padding: 0; 
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background-color: var(--navy);
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 40px 40px;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100dvh; /* Uses exact dynamic screen height */
+    }
+
+
+
+    /* ── Page Body ──────────────────────────────────────────── */
+    .page {
+      width: 100%;
+      max-width: 480px;
+      height: 100%; /* Take full body height */
+      padding: max(32px, 5vh) 16px max(32px, 5vh);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between; /* Spreads out title, grid, and keyboard */
+      gap: clamp(8px, 2vh, 16px);
+    }
+
+    .game-title {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 2rem;
+      color: var(--text);
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: -10px;
+    }
+
+    /* ── Grid ───────────────────────────────────────────────── */
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: min(1vh, 6px); /* Shrink gaps on short screens */
+    }
+
+    .grid-row {
+      display: flex;
+      gap: min(1vh, 6px);
+    }
+
+    .tile {
+      /* Scales based on width (vw), height (vh), but caps at 58px */
+      width: min(14vw, 8vh, 58px); 
+      height: min(14vw, 8vh, 58px);
+      border-radius: var(--radius);
+      border: 2px solid var(--border);
+      background: var(--navy-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fredoka One', sans-serif;
+      font-size: min(1.6rem, 5vh); /* Shrink font on short screens */
+      color: var(--text);
+      text-transform: uppercase;
+      position: relative;
+      perspective: 250px;
+      cursor: default;
+      user-select: none;
+      transition: border-color 0.2s;
+    }
+
+    /* Glow pulse on active row */
+    .grid-row.active .tile {
+      animation: rowPulse 2.5s ease-in-out infinite;
+    }
+    .grid-row.active .tile.filled {
+      animation: none;
+    }
+
+    @keyframes rowPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(126,211,33,0); }
+      50%       { box-shadow: 0 0 10px 3px var(--lime-glow); }
+    }
+
+    /* Pop-in when letter typed */
+    @keyframes popIn {
+      0%   { transform: scale(0.85); }
+      60%  { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .tile.pop { animation: popIn 0.1s ease; }
+
+    /* Flip reveal — scaleY squeeze, color swaps at midpoint */
+    @keyframes flipReveal {
+      0%   { transform: scaleY(1); }
+      49%  { transform: scaleY(0); }
+      50%  { transform: scaleY(0); }
+      100% { transform: scaleY(1); }
+    }
+    .tile.revealing { animation: flipReveal 0.45s ease forwards; }
+
+    .tile.correct { background: #538d4e; color: #fff; border-color: #538d4e; }
+    .tile.present { background: #b59f3b; color: #fff; border-color: #b59f3b; }
+    .tile.absent  { background: #3a3a3c; color: #aaa; border-color: #3a3a3c; }
+
+    /* Shake on invalid */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-5px); }
+      80%      { transform: translateX(5px); }
+    }
+    .grid-row.shake { animation: shake 0.4s ease; }
+
+    /* ── Keyboard ───────────────────────────────────────────── */
+    .keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .kb-row {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+    }
+
+    .key {
+      background: var(--navy-card);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      min-width: 36px;
+      height: min(7vh, 46px); /* Cap at 46px, but shrink on short displays */
+      padding: 0 6px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, filter 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    .key:hover  { filter: brightness(1.25); transform: translateY(-1px); }
+    .key:active { transform: translateY(1px); }
+
+    .key.enter {
+      font-family: 'Fredoka One', sans-serif;
+      background: var(--lime);
+      color: var(--navy);
+      min-width: 58px;
+      font-size: 14px;
+    }
+
+    .key.backspace {
+      background: var(--navy-light);
+      min-width: 46px;
+      font-size: 16px;
+    }
+
+    .key.absent   { background: #3a3a3c; color: #888; border-color: transparent; }
+
+    /* ── Toast ──────────────────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      left: 16px; /* Pins container to the left edge */
+      /* transform: translateX(-50%); <-- REMOVED this */
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start; /* Aligns multiple toasts to the left instead of center */
+      z-index: 500;
+      pointer-events: none;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to   { opacity: 0; transform: translateY(-10px); }
+    }
+
+	.toast {
+	  background: rgba(28, 28, 30, 0.75); /* glassy dark */
+	  backdrop-filter: blur(12px);
+	  -webkit-backdrop-filter: blur(12px);
+
+	  color: rgba(255, 255, 255, 0.9);
+	  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+	  font-weight: 500;
+	  font-size: 14px;
+
+	  padding: 12px 16px;
+	  border-radius: 14px;
+
+	  box-shadow: 
+		0 8px 30px rgba(0, 0, 0, 0.35),
+		inset 0 0 0 0.5px rgba(255,255,255,0.06);
+
+	  animation: toastIn 0.25s ease;
+	  white-space: nowrap;
+
+	  display: inline-flex;
+	  align-items: center;
+	  gap: 10px;
+	}
+
+	.toast.win {
+	  color: #32d74b; /* Apple green */
+	}
+
+	.toast.loss {
+	  color: #ff375f; /* Apple red/pink */
+	}
+
+    /* ── New Game Button ────────────────────────────────────── */
+    .new-game-wrap {
+      display: none;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .new-game-wrap.visible { display: flex; }
+
+    .btn-lime {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 17px;
+      background: var(--lime);
+      color: var(--navy);
+      border: none;
+      border-radius: 100px;
+      padding: 13px 36px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--lime-glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-lime:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(126,211,33,0.35); }
+    .btn-lime:active { transform: translateY(0); }
+
+    /* ── Confetti ───────────────────────────────────────────── */
+    #confetti-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── Live region ────────────────────────────────────────── */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 400px) {
+      .tile { width: 52px; height: 52px; font-size: 1.4rem; }
+      .key  { min-width: 30px; font-size: 12px; }
+      .key.enter, .key.backspace { min-width: 40px; }
+    }
+	
+	/* ── Screen & Modal Management ──────────────────────────── */
+    .screen {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    .screen.active { display: flex; }
+
+    /* Main Menu */
+    #main-menu { justify-content: center; gap: 24px; }
+    .menu-logo {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 3.5rem;
+      color: var(--lime);
+      text-shadow: 0 4px 20px var(--lime-glow);
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    /* Game Over Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(13, 27, 42, 0.85); /* Dark navy glassy */
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 900; /* Below confetti (999) so it rains over the modal */
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.visible { display: flex; opacity: 1; }
+    
+    .modal-card {
+      background: var(--navy-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      transform: translateY(20px);
+      transition: transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .modal-overlay.visible .modal-card { transform: translateY(0); }
+
+    .modal-title { font-family: 'Fredoka One', sans-serif; font-size: 2.2rem; }
+    .modal-title.win { color: var(--lime); }
+    .modal-title.loss { color: var(--pink); }
+    .modal-word-wrap { color: var(--text-dim); font-size: 1rem; margin-bottom: 8px; }
+    .modal-word { color: var(--text); font-weight: 800; font-size: 1.4rem; letter-spacing: 2px; text-transform: uppercase;}
+	
+	body {
+	  -webkit-user-select: none;
+	  -moz-user-select: none;
+	  -ms-user-select: none;
+	  user-select: none;
+	}
+	
+  </style>
+</head>
+<body>
+
+<canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+<!-- Screen reader live region -->
+<div id="sr-live" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container" aria-live="polite" aria-label="Game messages"></div>
+
+<!-- Main -->
+<div id="main-menu" class="screen active">
+  <div class="menu-logo">Letter Lock</div>
+  <p class="subtitle" style="font-size: 16px; margin-bottom: 20px;">Guess the 5-letter word in 6 tries</p>
+  <button class="btn-lime" id="btn-start-game">▶ Play Now</button>
+</div>
+
+<main class="page screen" id="game-screen" role="main">
+  <h1 class="game-title">Letter Lock</h1>
+  <p class="subtitle">Guess the 5-letter word in 6 tries</p>
+
+  <div class="grid" id="grid" role="grid" aria-label="Guessing grid"></div>
+
+  <div class="keyboard" id="keyboard" role="group" aria-label="On-screen keyboard">
+    <div class="kb-row" id="kb-row-0"></div>
+    <div class="kb-row" id="kb-row-1"></div>
+    <div class="kb-row" id="kb-row-2"></div>
+  </div>
+  
+  </main>
+
+<div class="modal-overlay" id="game-over-modal">
+  <div class="modal-card">
+    <div class="modal-title" id="modal-title">You Won!</div>
+    <div class="modal-word-wrap">The word was: <br><span class="modal-word" id="modal-word">HELLO</span></div>
+    <button class="btn-lime" id="btn-play-again">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   WORD LISTS
+══════════════════════════════════════════════════════════════════ */
+const rawAnswers = [
+  "ABOUT","ABOVE","ABUSE","ACTOR","ACUTE","ADMIT","ADOPT","AFTER","AGAIN","AGENT",
+  "AGREE","AHEAD","ALARM","ALBUM","ALERT","ALIEN","ALIGN","ALIKE","ALIVE","ALLEY",
+  "ALLOW","ALONE","ALONG","ALOUD","ALTER","ANGEL","ANGER","ANGLE","ANGRY","ANIME",
+  "ANNEX","ANTIC","ANVIL","APART","APPLE","APPLY","ARISE","ARMOR","ARRAY","ARROW",
+  "ASSET","ATLAS","ATTIC","AUDIO","AUDIT","AVOID","AWAKE","AWARD","AWARE","AWFUL",
+  "BADLY","BAKER","BASIC","BASIS","BATCH","BEACH","BEARD","BEAST","BEGAN","BEGIN",
+  "BEING","BELOW","BENCH","BERRY","BIRTH","BISON","BITER","BLADE","BLAME","BLAND",
+  "BLAST","BLAZE","BLEAK","BLEND","BLESS","BLIND","BLOCK","BLOWN","BLUES","BLUNT",
+  "BOARD","BOAST","BONUS","BOOST","BOOTH","BORED","BOSSY","BOUND","BOXER","BRACE",
+  "BRAID","BRAIN","BRAND","BRAVE","BREAD","BREAK","BREED","BRIDE","BRIEF","BRING",
+  "BRISK","BROKE","BROOK","BROWN","BRUSH","BUILD","BUILT","BUMPY","BURST","BUYER",
+  "CABIN","CAMEL","CANDY","CARGO","CARRY","CARVE","CATCH","CAUSE","CHAIN","CHAIR",
+  "CHAOS","CHARM","CHASE","CHEAP","CHECK","CHEER","CHESS","CHEST","CHIEF","CHILD",
+  "CIVIC","CIVIL","CLAIM","CLAMP","CLANK","CLAPS","CLASH","CLASP","CLASS","CLEAN",
+  "CLEAR","CLICK","CLIFF","CLIMB","CLING","CLOCK","CLONE","CLOSE","CLOUD","COACH",
+  "COMET","COMIC","COMMA","COUCH","COULD","COUNT","COURT","COVER","CRAFT","CRANE",
+  "CRASH","CRAWL","CRAZY","CREAM","CREEK","CREEP","CRISP","CROSS","CROWD","CROWN",
+  "CRUDE","CRUEL","CRUMB","CRUSH","CRYPT","CUBIC","CURVE","CYCLE","DAILY","DANCE",
+  "DEALT","DECOY","DEFER","DELAY","DELTA","DENSE","DEPOT","DEPTH","DERBY","DEVIL",
+  "DIARY","DIGIT","DISCO","DITCH","DODGE","DOING","DOUBT","DOUGH","DRAFT","DRAIN",
+  "DRAMA","DRANK","DRAWL","DRAWN","DREAD","DRILL","DRINK","DRIVE","DROOL","DROVE",
+  "DROWN","DRUGS","DRYER","DUNNO","DUSK","DUSTY","DWARF","EAGLE","EARLY","EARTH",
+  "EIGHT","ELITE","EMBER","EMPTY","ENJOY","EQUAL","EQUIP","ESSAY","EVADE","EVENT",
+  "EXACT","EXCEL","EXILE","EXIST","EXTRA","FABLE","FAINT","FAIRY","FAITH","FANCY",
+  "FATAL","FAULT","FEAST","FENCE","FERRY","FETCH","FEVER","FIBER","FIELD","FIERY",
+  "FIFTY","FIGHT","FINAL","FIRST","FIXED","FJORD","FLAME","FLANK","FLARE","FLASH",
+  "FLASK","FLAT","FLECK","FLESH","FLICK","FLING","FLOAT","FLOCK","FLOOD","FLOOR",
+  "FLORA","FLOUR","FLUID","FLUSH","FLUTE","FOCAL","FOGGY","FOLLY","FORCE","FORGE",
+  "FORUM","FOUND","FOXES","FRAME","FRANK","FRAUD","FRESH","FRONT","FROST","FROZE",
+  "FRUIT","FULLY","FUNGI","FUNNY","GAUZE","GIVEN","GLAND","GLARE","GLASS","GLIDE",
+  "GLOOM","GLOSS","GLOVE","GLYPH","GRACE","GRADE","GRAFT","GRAIN","GRAND","GRANT",
+  "GRASP","GRAVEL","GRAVY","GRAZE","GREED","GREET","GRIEF","GRILL","GRIMM","GRIND",
+  "GROAN","GROPE","GROSS","GROUP","GROVE","GROWL","GROWN","GRUEL","GRUNT","GUARD",
+  "GUIDE","GUILD","GUISE","GULCH","GULLS","GUSTO","GUSTY","HAPPY","HARSH","HASTE",
+  "HATCH","HAVOC","HEART","HEAVY","HEDGE","HENCE","HINGE","HIPPO","HOIST","HONEY",
+  "HONOR","HOPED","HORDE","HORSE","HOTEL","HOUSE","HUMAN","HUMID","HUMOR","HURRY",
+  "HYPER","IDEAL","IMAGE","INDEX","INDIE","INFER","INNER","INPUT","INTER","INTRO",
+  "ISSUE","IVORY","ICING","JUDGE","JUICE","JUICY","JUMBO","KAYAK","KEBAB","KNACK",
+  "KNEEL","KNIFE","KNOCK","KNOWN","LABEL","LANCE","LAPSE","LARGE","LASER","LATER",
+  "LEMON","LEVEL","LIGHT","LILAC","LIMIT","LINED","LINER","LIVER","LOCAL","LODGE",
+  "LOGIC","LOOSE","LOVER","LOWER","LOYAL","LUCKY","LUNCH","MAGIC","MAJOR","MAKER",
+  "MANOR","MAPLE","MARSH","MAYOR","MEDIA","MERGE","MERIT","METAL","MIDST","MIGHT",
+  "MINCE","MINOR","MINUS","MIRTH","MISER","MIXED","MODEL","MOIST","MONEY","MONTH",
+  "MOODY","MORAL","MOUNT","MOUSE","MOVED","MOVIE","MURAL","MUSIC","NADIR","NAIVE",
+  "NAVAL","NIGHT","NIFTY","NOBLE","NOISE","NORTH","NOTED","NOVEL","NURSE","NYMPH",
+  "OCCUR","OFFER","OFTEN","OLIVE","ONSET","OPERA","ORDER","OTHER","OUTER","OUNCE",
+  "OWNED","OWNER","OZONE","PAINT","PANIC","PASTA","PATCH","PAUSE","PEACE","PEARL",
+  "PEDAL","PERKY","PETAL","PHASE","PIANO","PIECE","PILOT","PINCH","PIXIE","PIZZA",
+  "PLACE","PLAIN","PLANE","PLANT","PLATE","PLEAD","PLUCK","PLUMB","PLUME","PLUMP",
+  "PLUNGE","POINT","POLAR","POLKA","PONYX","POSED","POWER","PRESS","PRICE","PRICK",
+  "PRIDE","PRIME","PRINT","PRIZE","PROBE","PRONE","PROOF","PROSE","PROUD","PROXY",
+  "PULSE","PUPIL","PURGE","PURSE","QUEEN","QUEST","QUEUE","QUICK","QUIET","QUOTA",
+  "QUOTE","RADAR","RADIO","RALLY","RAPID","RAVEN","REACT","REALM","REBEL","REFER",
+  "REIGN","RELAX","REMIX","REPAY","RIDER","RIDGE","RIGID","RISKY","RIVAL","RIVER",
+  "ROBIN","ROBOT","ROCKY","ROGUE","ROUGE","ROUGH","ROUND","ROVER","ROYAL","RURAL",
+  "SALTY","SANDY","SAUCE","SAVVY","SCALD","SCALP","SCARF","SCENE","SCORE","SCOUT",
+  "SEIZE","SENSE","SERVE","SETUP","SEVEN","SHADE","SHADY","SHALL","SHAME","SHAPE",
+  "SHARE","SHARK","SHARP","SHELF","SHELL","SHIFT","SHIRT","SHOCK","SHOOT","SHORE",
+  "SHORT","SHOUT","SHOVE","SIGHT","SILKY","SILLY","SINCE","SIXTH","SIXTY","SIZED",
+  "SKILL","SKULL","SLAB","SLATE","SLAVE","SLEEK","SLEEP","SLEET","SLEPT","SLICE",
+  "SLIDE","SLIME","SLING","SLINK","SLOPE","SLOTH","SLUMP","SMACK","SMALL","SMART",
+  "SMASH","SMELL","SMILE","SMOKE","SNACK","SNAKE","SNARE","SNEAK","SOLID","SOLVE",
+  "SONIC","SORRY","SOUND","SPACE","SPARE","SPARK","SPAWN","SPEND","SPINE","SPOKE",
+  "SPOOK","SPOON","SPRAY","SQUAD","SQUAT","STACK","STAFF","STAGE","STAKE","STALE",
+  "STALK","STALL","STAND","STARK","START","STATE","STAYS","STEAM","STEEL","STEEP",
+  "STERN","STICK","STIFF","STILL","STINK","STIR","STOCK","STOMP","STONE","STOOD",
+  "STORM","STORY","STOUT","STOVE","STRAP","STRAW","STRAY","STRIP","STUCK","STUDY",
+  "STUMBLE","STYLE","SUGAR","SUITE","SUNNY","SUPER","SURGE","SWORD","SWAMP","SWEAR",
+  "SWEEP","SWEET","SWEPT","SWIFT","SWING","SWIRL","TABBY","TABLE","TAUNT","TENSE",
+  "TENTH","THEFT","THEIR","THEME","THICK","THING","THINK","THORN","THREE","THREW",
+  "THROW","TIARA","TIGER","TIGHT","TIMER","TITLE","TODAY","TOKEN","TONIC","TOUCH",
+  "TOUGH","TOWEL","TRACK","TRADE","TRAIL","TRAIN","TRAMP","TRAWL","TREND","TRIAL",
+  "TRIBE","TRICK","TRIED","TROOP","TROVE","TRUCK","TRUNK","TRUST","TRUTH","TULIP",
+  "TUMOR","TURBO","TWICE","TWIST","TYING","ULTRA","UNCLE","UNDER","UNTIL","UPSET",
+  "URBAN","URGED","USAGE","VAGUE","VALID","VALOR","VALVE","VENOM","VIGOR","VINYL",
+  "VIRAL","VIRUS","VISOR","VIVID","VOCAL","VOICE","VOTER","VOWEL","WAGER","WALTZ",
+  "WASTE","WATCH","WATER","WEARY","WEAVE","WEDGE","WEIRD","WHALE","WHEAT","WHEEL",
+  "WHERE","WHILE","WHIRL","WHITE","WHOLE","WIDEN","WINDY","WITCH","WITTY","WOMAN",
+  "WORLD","WORRY","WORSE","WORST","WORTH","WOUND","WRATH","WRITE","WROTE","YACHT",
+  "YIELD","YOUNG","YOUTH","ZEBRA","ZESTY","ZILCH","ZIPPY","ZONES",
+
+  "ABOUT","ALERT","ARGUE","BEACH","ABOVE","ALIKE","ARISE","BEGAN","ABUSE","ALIVE",
+  "ARRAY","BEGIN","ACTOR","ALLOW","ASIDE","BEGUN","ACUTE","ALONE","ASSET","BEING",
+  "ADMIT","ALONG","AUDIO","BELOW","ADOPT","ALTER","AUDIT","BENCH","ADULT","AMONG",
+  "AVOID","BILLY","AFTER","ANGER","AWARD","BIRTH","AGAIN","ANGLE","AWARE","BLACK",
+  "AGENT","ANGRY","BADLY","BLAME","AGREE","APART","BAKER","BLIND","AHEAD","APPLE",
+  "BASES","BLOCK","ALARM","APPLY","BASIC","BLOOD","ALBUM","ARENA","BASIS","BOARD",
+  "BOOST","BUYER","CHINA","COVER","BOOTH","CABLE","CHOSE","CRAFT","BOUND","CALIF",
+  "CIVIL","CRASH","BRAIN","CARRY","CLAIM","CREAM","BRAND","CATCH","CLASS","CRIME",
+  "BREAD","CAUSE","CLEAN","CROSS","BREAK","CHAIN","CLEAR","CROWD","BREED","CHAIR",
+  "CLICK","CROWN","BRIEF","CHART","CLOCK","CURVE","BRING","CHASE","CLOSE","CYCLE",
+  "BROAD","CHEAP","COACH","DAILY","BROKE","CHECK","COAST","DANCE","BROWN","CHEST",
+  "COULD","DATED","BUILD","CHIEF","COUNT","DEALT","BUILT","CHILD","COURT","DEATH",
+  "DEBUT","ENTRY","FORTH","GROUP","DELAY","EQUAL","FORTY","GROWN","DEPTH","ERROR",
+  "FORUM","GUARD","DOING","EVENT","FOUND","GUESS","DOUBT","EVERY","FRAME","GUEST",
+  "DOZEN","EXACT","FRANK","GUIDE","DRAFT","EXIST","FRAUD","HAPPY","DRAMA","EXTRA",
+  "FRESH","HARRY","DRAWN","FAITH","FRONT","HEART","DREAM","FALSE","FRUIT","HEAVY",
+  "DRESS","FAULT","FULLY","HENCE","DRILL","FIBRE","FUNNY","NIGHT","DRINK","FIELD",
+  "GIANT","HORSE","DRIVE","FIFTH","GIVEN","HOTEL","DROVE","FIFTY","GLASS","HOUSE",
+  "DYING","FIGHT","GLOBE","HUMAN","EAGER","FINAL","GOING","IDEAL","EARLY","FIRST",
+  "GRACE","IMAGE","EARTH","FIXED","GRADE","INDEX","EIGHT","FLASH","GRAND","INNER",
+  "ELITE","FLEET","GRANT","INPUT","EMPTY","FLOOR","GRASS","ISSUE","ENEMY","FLUID",
+  "GREAT","IRONY","ENJOY","FOCUS","GREEN","JUICE","ENTER","FORCE","GROSS","JOINT",
+  "JUDGE","METAL","MEDIA","NEWLY","KNOWN","LOCAL","MIGHT","NOISE","LABEL","LOGIC",
+  "MINOR","NORTH","LARGE","LOOSE","MINUS","NOTED","LASER","LOWER","MIXED","NOVEL",
+  "LATER","LUCKY","MODEL","NURSE","LAUGH","LUNCH","MONEY","OCCUR","LAYER","LYING",
+  "MONTH","OCEAN","LEARN","MAGIC","MORAL","OFFER","LEASE","MAJOR","MOTOR","OFTEN",
+  "LEAST","MAKER","MOUNT","ORDER","LEAVE","MARCH","MOUSE","OTHER","LEGAL","MUSIC",
+  "MOUTH","OUGHT","LEVEL","MATCH","MOVIE","PAINT","LIGHT","MAYOR","NEEDS","PAPER",
+  "LIMIT","MEANT","NEVER","PARTY","PEACE","POWER","RADIO","ROUND","PANEL","PRESS",
+  "RAISE","ROUTE","PHASE","PRICE","RANGE","ROYAL","PHONE","PRIDE","RAPID","RURAL",
+  "PHOTO","PRIME","RATIO","SCALE","PIECE","PRINT","REACH","SCENE","PILOT","PRIOR",
+  "READY","SCOPE","PITCH","PRIZE","REFER","SCORE","PLACE","PROOF","RIGHT","SENSE",
+  "PLAIN","PROUD","RIVAL","SERVE","PLANE","PROVE","RIVER","SEVEN","PLANT","QUEEN",
+  "QUICK","SHALL","PLATE","SIXTH","STAND","SHAPE","POINT","QUIET","ROMAN","SHARE",
+  "POUND","QUITE","ROUGH","SHARP","SHEET","SPARE","STYLE","TIMES","SHELF","SPEAK",
+  "SUGAR","TIRED","SHELL","SPEED","SUITE","TITLE","SHIFT","SPEND","SUPER","TODAY",
+  "SHIRT","SPENT","SWEET","TOPIC","SHOCK","SPLIT","TABLE","TOTAL","SHOOT","SPOKE",
+  "TAKEN","TOUCH","SHORT","SPORT","TASTE","TOUGH","SHOWN","STAFF","TAXES","TOWER",
+  "SIGHT","STAGE","TEACH","TRACK","SINCE","STAKE","TEETH","TRADE","SIXTY","START",
+  "TEXAS","TREAT","SIZED","STATE","THANK","TREND","SKILL","STEAM","THEFT","TRIAL",
+  "SLEEP","STEEL","THEIR","TRIED","SLIDE","STICK","THEME","TRIES","SMALL","STILL",
+  "THERE","TRUCK","SMART","STOCK","THESE","TRULY","SMILE","STONE","THICK","TRUST",
+  "SMITH","STOOD","THING","TRUTH","SMOKE","STORE","THINK","TWICE","SOLID","STORM",
+  "THIRD","UNDER","SOLVE","STORY","THOSE","UNDUE","SORRY","STRIP","THREE","UNION",
+  "SOUND","STUCK","THREW","UNITY","SOUTH","STUDY","THROW","UNTIL","SPACE","STUFF",
+  "TIGHT","UPPER","UPSET","WHOLE","WASTE","WOUND","URBAN","WHOSE","WATCH","WRITE",
+  "USAGE","WOMAN","WATER","WRONG","USUAL","TRAIN","WHEEL","WROTE","VALID","WORLD",
+  "WHERE","YIELD","VALUE","WORRY","WHICH","YOUNG","VIDEO","WORSE","WHILE","YOUTH",
+  "VIRUS","WORST","WHITE","WORTH","VISIT","WOULD","VITAL","VOICE"
+];
+
+const ANSWERS = [...new Set(rawAnswers)].filter(w => w.length === 5 && new Set(w).size === 5);
+
+const VALID_GUESSES = [
+  ...ANSWERS,
+"jagra","ofuro","fewer","vaned","pacha","kinda","reget","nobly","rorty","vadas","azoic","bongo","soupy","modge","wanks","torch","angel","quiet","luvvy","small","umiac","audit","diels","unwed","gismo","koiwi","jenny","octas","recep","eevns","amnic","trade","ploys","dumps","pleon","known","sabra","boche","motet","rhyne","patte","fayne","speug","yarks","nervy","blest","terts","marah","savey","slums","nubia","vrows","lethe","sards","hewgh","knave","mulla","aidos","nevvy","rafiq","acock","tawie","nacho","width","capes","bulky","foxed","geyer","logon","crook","sprug","palki","shive","ponto","macka","cesti","faxes","dopas","ansas","whids","throb","rolls","kiaki","glamp","patee","short","dados","rudes","yorks","ayahs","inarm","fabby","fatal","tzars","fried","moped","cauld","piqui","poppy","lurks","advew","vinca","marge","yacht","gants","hoggs","gouge","clued","picra","gyron","soled","heaty","lamas","cutch","stowp","fulth","soyuz","mocks","grave","sixes","capas","chief","abuts","skats","furze","giber","voids","janes","pavid","saned","junks","knock","sodic","razet","thorn","leear","dumky","rames","tynde","sonar","bawty","bravo","salic","ritzy","feuds","sirih","dawen","panel","piggy","snipe","luged","yoyos","karai","yeuky","breed","nylon","attas","dishy","wraps","camis","tacet","bland","hiant","leves","bluet","weeke","bhaji","burly","mersk","enfix","doxes","eider","brace","hemes","siles","paled","nimby","fatty","wakfs","dolci","kyudo","debus","parti","their","diddy","looie","casts","ennui","genny","blubs","tiara","brick","murry","bekah","fovea","sined","whiny","osmic","tarre","lingy","roves","haffs","mirex","girth","unity","ycond","dexes","meted","upsee","brust","drays","sownd","under","woofs","gonia","thrae","drice","gauge","betty","yoghs","pushy","pawky","sices","woven","yappy","saine","rayas","rayls","ramis","delis","dolts","dicht","mease","chout","dormy","logan","sitka","veena","lynes","coarb","queek","talma","sends","mincy","nagas","flyer","quino","heare","talaq","speed","navvy","pains","dooms","poete","nucin","sward","magas","ranga","coala","penes","boyau","filon","minke","volet","setae","wiggy","avgas","gopik","roric","tolts","accas","fugio","camus","twyer","stale","tawse","thanx","roneo","alala","agist","darbs","kipes","shark","mutum","bloke","taish","kandy","moils","month","canon","shalt","homos","deely","curat","olpae","forky","vamps","turnt","shale","glaik","pikes","touzy","strag","shahs","bhels","larch","wussy","smize","sulci","nurse","almah","fitna","hebes","teeny","barns","hyped","scant","sojas","telly","yummy","hoosh","snoke","olpes","spald","keeks","maare","dowed","shule","tuffs","trews","fauna","tarty","waugh","arbor","plate","daubs","adunc","knows","tyers","ankhs","raker","quell","mecks","jatos","atigi","warbs","finca","carny","trims","fling","sunis","poynt","crool","basta","rands","frier","upjet","anele","betas","palsa","lisle","inert","coyer","sewar","abeys","ergos","guard","spirt","scads","helix","fosse","crisp","cobia","quirk","agars","murky","hists","ponce","yirth","hoper","fable","waded","cower","wound","yoofs","pouis","negro","globy","shack","tiers","swale","cheeb","joint","parer","ulnar","womby","fiest","vivos","larga","hazel","apode","stogy","gaitt","gippo","brava","crash","vasal","belee","amman","repay","snowk","salts","faced","gabby","mungi","hemic","heats","fends","unlid","kuzus","treyf","leady","alter","meffs","pombe","neaps","netts","preem","galut","aruhe","eking","whang","masts","ragus","pekau","spiks","hants","navel","skids","gazoo","geoid","babka","fract","ovels","gites","bidon","clies","wagga","prent","halos","hocks","chart","bezel","mozed","hiper","fitte","balds","surly","poise","freak","three","derby","jinne","proas","mogos","kraft","deshi","eosin","vital","outed","favor","redry","night","ether","stown","alvar","cohos","skivy","soaks","typed","crabs","nonda","plexi","resay","quant","email","ribas","befog","iambs","manny","dbags","hijab","pelog","burbs","stong","shall","neant","croon","brios","meins","pomos","reist","rishi","wuffs","reans","reest","sumps","tires","aurum","cuppa","kwela","starn","gusts","recit","traps","skies","britt","perdu","dared","idler","mumbo","konks","stean","stays","longe","kapus","heeze","hurls","slaws","oxine","holly","trots","cuppy","onlay","mesto","manse","smoko","blets","theor","beths","dater","hifis","rythe","polos","qualm","jones","cyber","sacks","paips","putto","zowee","droop","hoise","giros","confs","duply","kisan","avers","glitz","diane","royst","guyse","hoary","doted","laers","dulce","parch","exine","folie","monks","stall","fetes","atocs","ariel","eyrie","huias","leggo","pinga","agony","sorns","cloff","hules","mauvy","loled","touze","pasha","chics","modal","buyer","zawns","kanas","loved","lemma","lexes","rasam","pissy","bolts","bombs","kilts","denar","coomy","icons","polys","oohed","cloak","cuffo","lough","emcee","fires","lomas","spiff","sevak","jivey","skyre","bunch","chirm","roleo","males","muses","liman","gages","luger","vasty","souls","battu","toges","inrun","peril","kipas","dwine","chaos","jheel","brogs","murgi","bagsy","paseo","kapai","anana","vraic","myxos","faute","unhat","ergot","madal","feral","chark","alces","debye","reeaf","titan","phase","sanes","avert","alula","duple","rowdy","sidle","verst","hobos","slimy","infer","ngana","crops","pipul","phare","symar","leams","dough","mingy","dribs","updos","cameo","grogs","privy","canes","carls","nonno","quint","kilig","acidy","fuzes","fendy","chelp","coach","spazz","sowps","jhils","flies","hiped","peels","mokus","debel","clack","mirkn","heavy","quean","abate","fisks","queem","spilt","puros","paysd","shoos","senza","rases","aspie","katal","below","carrs","medle","snees","stive","remou","cough","weave","maced","ngege","gynie","gandy","serai","resam","awkin","biner","heady","delts","laids","squat","shell","aitus","ommel","untag","crave","ramal","scull","brujo","hejra","swopt","purao","manus","skein","enows","hates","moans","rimer","urnal","sposh","tawaf","newie","aldea","jugal","crore","genua","mundu","prise","bacha","loord","bothy","tithi","borna","choir","cooms","tofus","oopak","chert","waifs","cruor","agoge","salas","sotto","idiot","ambit","dhaba","poles","rusty","grigs","bogus","phooh","cocoa","zaide","mivey","couch","altho","soman","macon","spang","pians","azlon","bunds","sakes","exfil","quank","stiff","mimer","unfed","wocks","sagas","glazy","docos","medic","tache","fully","tawai","plane","kirri","refry","wahay","fubsy","arter","apsis","reffo","poofy","daunt","river","pepsi","nappy","tanhs","inkle","veges","crock","mummy","knoud","dowts","gonzo","piled","silts","maray","goads","peins","shchi","devos","nimbi","wiled","gears","motel","cater","crept","pimps","quist","sopor","zeins","broth","bidet","siped","buffo","bonce","vichy","fecit","wifey","flyby","smalm","redig","syker","gents","weels","cabob","zineb","agape","extra","cohen","kamik","empty","tools","clipt","chode","heyed","blaud","trite","mount","cuber","chuts","shill","nonce","stalk","exeme","sados","longs","clamp","hamel","ascon","moule","hinge","frill","agree","ripps","morse","acmes","hippy","gesse","maiks","swine","yacca","kains","snips","septa","fonds","sypes","aware","scroo","piper","buddy","sukis","nucha","laves","tanas","tasar","abler","ouzel","aloos","gunny","ixias","condo","dense","plups","zoaea","pouke","cuish","hotty","snort","retie","corda","accha","midst","penna","riads","tamer","revel","ummas","rusas","fleer","blame","lased","chink","gauss","sadly","haute","burka","solei","perdy","reeds","plies","afore","gibed","picon","vault","proxy","flume","hitch","cleat","yomps","cuddy","neums","senti","atrip","tepoy","rains","filii","blend","barbs","tater","rifle","bluid","hills","agast","champ","pinas","pitot","gotta","rowme","minny","cholo","brigs","vacui","gated","mound","cried","whaur","pinta","riced","amove","stern","rakia","fusks","rimes","rhime","scend","breys","enarm","chays","brugh","rakus","leeps","culpa","kaury","rhone","meers","aspro","awato","flype","alkin","alane","marga","noint","alcid","slyly","lotus","doors","smogs","hokum","waive","baffy","buaze","anear","moody","volar","flied","crust","zanza","crass","rione","helps","flash","mauls","jujus","yojan","hundo","ibrik","dated","mercy","gleds","ragga","nomic","priss","korun","verra","clink","curst","narra","ticks","toity","preve","goopy","sords","buteo","spurs","temse","indew","skill","torcs","north","mamey","hithe","ryijy","oiled","newsy","duads","kobos","puked","shins","sease","lists","bergs","toddy","crown","circs","spile","mirky","prads","casky","mises","briki","seirs","perai","rorie","hoard","milpa","umiak","siker","moony","knowd","angle","fares","dwelt","adraw","fohns","ruffe","yucca","gaups","leirs","inust","mifty","terek","mensh","owari","hyles","idyls","expos","kohls","motey","nonet","fiber","putos","undee","lyses","wades","vials","proud","dogey","dault","bevue","panko","decad","torah","droob","argal","doley","pulls","leman","epics","farce","knoll","carpi","kaies","looky","sippy","crits","biome","creed","lanes","unsew","bleak","glues","fossa","cubby","orgia","skeed","hawms","jibed","maces","swang","naifs","scray","tripy","sight","begob","ebene","pucks","puzel","potai","blore","ngwee","caned","perst","vouch","yapon","rased","hello","taker","payer","works","eathe","allus","miaou","wages","dowel","pedon","ingle","lense","jonty","sumos","munga","nerds","modin","favel","gabba","spars","kasme","dotal","cosey","tiars","prawn","jotas","alans","takis","tavas","berks","sicks","lalls","issue","skuas","peize","mites","alive","asses","nonyl","bluer","dashi","opens","lyams","lifts","wrest","ledes","middy","lesos","mados","zhuzh","peeks","risks","ramee","summa","sever","blawn","antas","anode","wings","kwink","maist","cuzes","loche","zonda","exons","goals","quran","fains","wised","fleam","alowe","spack","lilts","tosyl","rices","scoog","ardeb","pavin","banco","marry","rests","posts","mimed","gript","boffs","reuse","senor","fused","spacy","seame","delly","bitos","oumas","casco","rumba","plasm","anlas","yewen","kiefs","reais","pakka","erhus","ludic","ments","watts","snush","femes","genro","glide","cloam","weans","flota","gapos","terms","rinks","smits","petit","boost","elain","tipup","vocab","sexer","botte","fuzed","treen","gumps","bruck","tolan","fungi","sluse","olate","gorse","since","yells","urent","qapik","mecum","gilia","docus","china","bigae","bizzo","stede","slues","makos","toros","majoe","hilch","towze","micks","abode","doabs","laith","hoers","mirin","allee","ogles","ureic","etats","chons","filly","hubba","wauls","cadet","facts","snaky","swash","odium","adead","choil","ruffy","navar","preys","conne","brass","saiga","doing","vants","namad","loser","bated","halid","sunns","tanga","bocci","emeus","hacek","scorn","grosz","libor","sithe","peece","clits","nebby","arene","mosks","puree","hodja","posed","ugali","guans","atman","fices","takes","orval","boras","sybbe","groof","farer","manos","eases","mikan","trayf","tried","erick","weest","polio","bolet","gunks","galea","escar","globe","dower","ranny","rosal","tempo","muffs","poach","gynae","aiyee","choli","vinny","hurry","dalts","doucs","baaed","tenor","wuxia","balky","momie","footy","facty","orbit","ivory","wiped","coure","sonne","chara","cowal","erevs","plows","situp","beedi","yacka","alaps","eaves","pinna","chota","grade","ahold","pebas","plues","parky","uptak","cohoe","reeve","spark","cense","tuans","nurdy","boink","imaum","lumas","ambos","horsy","shove","haros","dynes","carve","gauzy","chase","waler","pesch","lapin","stots","sorex","datal","pelfs","goyle","bates","inner","ablet","taras","corso","kacha","youth","girds","jills","throw","bukes","bribe","ihram","brith","culms","roods","goved","ratha","trios","hazed","cymas","saucy","anomy","fresh","gorge","coude","skios","runty","raver","danda","clout","swaps","urubu","mosso","union","nurts","nikah","weils","cream","jowar","zanja","mirrs","ixnay","menge","slams","oucht","crura","kapow","caxon","mungo","ayaya","rayed","asada","cloth","camps","pelsh","gordo","sials","jinks","lusus","kojis","moray","retro","retch","nuked","rhomb","hotis","oncus","reges","askar","piano","taupe","daube","toile","waxer","iotas","musky","lower","ignis","beaut","enmew","jails","copen","mirly","strep","wootz","euros","jagas","imari","avale","eigne","nifle","shoer","buret","acryl","volks","incus","rages","derpy","defog","clonk","saner","vitas","bubby","mered","gairs","jokol","coyau","baths","rewin","pungo","unais","mieux","paths","hench","berko","apron","waker","toast","noove","goold","fakey","trend","glair","shtup","hawks","hooha","kavas","asked","pands","salle","folks","lurve","dript","coady","kills","duals","shiva","rente","beisa","tones","mawrs","nyams","smack","outer","beany","ferns","marse","ogees","title","icing","surgy","ardri","promo","vrous","alway","lawsy","paler","zoomy","nolle","molal","hoser","hales","vibed","cribs","terra","onset","kaval","gavot","noris","moots","tined","deray","naped","grubs","sears","grapy","conch","rakhi","coats","hikes","scots","bajra","fluke","brier","ought","pharm","waffs","ryiji","eight","parge","foamy","verse","colog","musee","rerig","drove","natak","veggo","momes","hosel","algos","dadah","bursa","hoody","diode","ablow","nuses","puton","vapor","babes","laval","telia","slorm","lilos","along","heder","libel","marid","edict","maile","zetas","pligs","plush","stums","poods","lined","begin","snoot","cunei","times","zuzim","yapps","rusky","gazed","parra","rajas","reggo","cymol","foals","grand","reaps","butes","winze","bitty","rejas","jibes","lests","spray","brook","prize","yarrs","whore","laxly","sefer","leges","croci","newer","sheep","yocks","began","delph","oobit","lanks","denis","hucks","kayak","melts","prana","lawer","tommy","cased","rance","ahole","nappa","temed","nilas","skeen","luser","bally","flaws","himbo","smolt","jougs","vests","showy","medin","rubai","fanga","gamer","embed","teils","scart","licks","skets","crude","milia","gnats","dilly","rares","speck","peaks","jollo","avyze","ruers","mythi","tubas","wirra","dales","bells","didie","donor","cruet","syboe","slang","swoop","toxin","skips","brake","rawin","bogue","yohay","sprig","poxes","theca","huger","bliny","abbey","abase","zinke","ketas","daces","ligne","ering","zebus","etics","garis","chiti","naira","bodge","wheep","rymme","nages","ferox","pawas","pyned","gests","ratoo","kines","colas","dowar","gyred","grama","gobby","thuja","drack","burfi","trabs","eyots","waist","lowps","curia","forte","useta","hasks","piuma","askos","kikay","aweel","shads","corno","sated","seism","hoops","otium","blags","ducal","teels","seifs","ruths","doest","ugged","brill","wayed","kilty","refan","snath","fogos","lepta","kiosk","spayd","gibli","nizam","vogie","omits","ohmic","rives","fichu","nandu","burke","mixes","cocky","negri","biont","eclat","nudgy","unlay","flane","threw","rauns","mucho","faver","sneak","borde","zaris","unarm","wiels","filed","gutsy","amour","aghas","kithe","beres","bigos","swaly","dingy","homme","decos","shoji","slide","addio","spect","count","karks","prime","mawla","shorn","furry","yawny","paipe","lotic","teles","skool","genal","pated","paved","crame","qursh","gurks","aizle","goomy","anils","ringe","remet","hiked","taped","turfs","scraw","inane","cogue","modes","unban","hosed","renne","cubed","doree","skits","resod","idees","attic","cotta","allow","krunk","mazel","fyrds","pomme","doble","gnarr","bilat","diact","whiff","hided","hoiks","mumps","hacky","ariki","kamis","forms","spics","slaps","could","mizen","joked","alick","craps","piece","lunks","filks","campo","signs","tuple","phlox","momma","phono","yorps","aurae","copes","swits","huies","andro","banes","guess","armed","highs","omiai","kepis","waste","queys","venal","salad","oddly","unbox","gawps","store","veins","feals","pardi","hider","bebop","guids","ealed","lunes","meare","ceded","rosco","kexes","loupe","taxer","sooks","avion","kelts","alfas","jitty","wagyu","spike","rowet","esses","scrum","boomy","lokey","devis","ashes","beats","salps","jived","bento","raggy","squid","weeds","repos","gaunt","caums","based","godet","elate","towie","tiare","thuya","ahind","synod","hards","bardy","meeds","gelee","phooo","atoll","grebo","dogie","benis","teins","looms","anger","autos","never","proul","ursid","thens","mappy","chimb","mural","obeli","argil","ashen","stush","devon","phpht","quarl","dinlo","porte","oshac","stone","amari","reird","ohias","mutha","sawah","where","acies","beton","slops","slunk","kokam","larns","warks","renig","dolie","irked","kylix","frugs","kibbe","lappa","bauks","mesne","relet","ploat","teats","vires","djins","maral","ducky","oslin","swage","ropey","knees","hiply","patka","vobla","patta","elfin","melba","pasar","urial","mikes","crowd","early","razoo","sweir","skins","algor","varia","urupa","heuch","ribby","micra","porch","blive","groin","aleye","girlf","chafe","dumpy","alios","veils","oyers","craal","japes","aloof","awave","daraf","tinge","aalii","quods","qualy","syces","snide","table","hunky","curie","volte","solon","pupus","maund","pepon","ylems","nants","belay","bores","rowan","bindi","arbah","prase","disco","yulan","sucre","wrack","chirk","vanes","lawns","unapt","tiler","tusky","dolia","nighs","sored","outen","rower","fakie","daint","neefs","calfs","cooey","equid","stedd","parte","pirri","adret","nukes","noyes","cuing","noyed","babel","awing","reefy","gerne","amort","etrog","arnut","nebek","gnaws","scurf","munds","semes","pokie","wifes","carom","larum","sipes","kirns","snarf","peage","gulag","acred","veuve","stile","riles","gnome","mobey","grege","kelly","grope","pasty","mutas","shrug","gilas","sused","rough","bider","flunk","dixit","genio","apayd","rupia","grana","nanty","awork","dates","ditch","tirls","hakus","roger","drips","pauas","levin","roked","cauls","etude","pitas","tekke","airer","dices","nahal","bomor","sharp","focus","notes","qaids","thebe","celeb","curdy","typto","frizz","chiks","kiwis","cupel","marra","aurar","kerbs","sensi","takht","scrog","aquas","cuter","yites","tings","haled","swots","combi","esnes","smews","rings","added","whist","pooed","troll","naric","scrod","fjord","pauls","defer","parae","wurst","sells","aborn","zibet","yahoo","peepy","apish","monde","hyphy","tates","lakin","flong","peals","waurs","ympes","peent","gryce","tense","senes","eiked","kneed","dobes","raike","sidha","scalp","coqui","antre","deads","reams","mucid","primp","buzzy","oomph","ridgy","sahib","skeds","gouch","sigri","baaps","taper","fayer","terry","alder","mazac","keyed","orixa","purer","newbs","sidas","nonny","riley","piped","chord","naves","modii","bonne","chook","crowl","brome","deere","flees","snout","sirup","curds","playa","bandh","voled","mauri","volve","wamus","cease","hypes","dicty","pavis","windy","allyl","pines","boons","zoner","musca","anted","cires","meiny","caaed","pynes","pupas","scaur","eiron","assez","sooky","raphe","amice","plout","bewet","perae","zinky","whews","jinns","drawl","ephah","gadso","lumps","besit","frush","lochs","dwarf","bugle","skerm","plute","skyte","dogma","vairy","yarfa","ragas","boars","lovie","sowne","plonk","mudar","burry","sagar","ouped","liars","favus","grund","upful","synes","molys","scail","ekdam","ensky","yowes","hathi","wipes","lotsa","laded","staws","debts","magic","zanze","ileal","molds","fiefs","musth","topee","mihas","lewis","tacos","blins","murre","ogler","haafs","relax","saice","yeast","titin","dimes","vughy","merit","naffs","shams","tehee","risky","ebank","petri","fetch","boabs","rheme","aptly","bards","maria","boers","pilin","robin","choko","tardo","aleem","dover","model","triff","tanti","balti","ongon","bemad","googs","poohs","kitke","crane","grypt","skirr","axing","loins","niger","nason","claes","puffy","fixer","benty","bourn","sibia","churn","cadge","flary","stoop","wries","unbid","pleat","juste","noyau","whale","indol","ombre","focal","drily","quoin","mooli","donsy","vells","eldin","torts","harem","boysy","chair","grift","maqam","tarte","trats","napoo","twerk","rando","close","women","poxed","monas","knurl","sooms","usque","dorms","novel","scrap","begun","bolas","dotty","aline","emmet","swerf","poots","quaff","bubbe","prial","gutty","toidy","hiois","fleek","musks","logie","wisps","upper","pygmy","lassy","licht","rathe","annul","rutin","niece","lobar","linga","voici","nanny","abets","india","niess","bykes","ronts","gonad","ochry","tazza","ippon","ketes","miaow","wahey","agloo","toque","noels","gipsy","laide","pupae","recto","noted","linny","knars","gadge","lirks","panim","wrath","pensy","cukes","roady","trona","pricy","phage","knoop","agood","piezo","plops","tryps","stend","gucky","apert","moror","masha","rikwa","skoff","chiro","neche","hanch","nazar","brail","escot","maror","riant","latah","tymps","mense","scamp","ackee","untax","smees","frorn","natty","mesyl","sceat","lezzy","neath","kohas","decan","dhaks","guest","maunt","brods","reify","lemes","loses","ploit","biers","weary","yucko","mugho","egest","twerp","loopy","ceres","climb","rehem","blast","stick","kench","vegas","cards","butyl","butte","dinge","omuls","reoil","tahrs","raxed","tatty","firns","touks","unget","titty","coapt","prate","deign","tenon","ticky","blaes","cusum","genie","vapes","kapha","goban","toxic","esrog","arris","geste","abaht","kulan","white","dacha","kokas","seppo","cando","podal","mimeo","agrum","lyssa","dowly","booay","biali","esker","gleby","handy","shend","popup","ofter","jaggs","oflag","fifes","supra","dayal","vauts","objet","jodel","tipis","pwned","doxed","onsen","piney","sprew","hyoid","morgy","vades","omber","wordy","paned","neves","doorn","barry","carat","wiles","wetly","addin","vakil","migod","perce","oscar","zeros","craze","fleet","cnida","serif","sikes","skews","stagy","purpy","colic","hight","bucko","epoch","modom","notum","boded","smugs","korat","rupee","brine","umbre","guffs","brere","chimo","elite","fixes","queck","paoli","salsa","pucka","furzy","video","jawed","blurt","pixel","sumph","pusle","munis","vined","fayre","fusts","czars","alant","nares","alkyl","faire","randy","braai","curly","azoth","grats","boogy","stubs","tajes","napes","aboil","porin","flore","emure","gippy","squab","kedgy","doses","pukus","tabus","ornis","dants","stylo","skees","loids","joual","afars","imped","sheel","harns","visto","cymae","arbas","arefy","adays","zatis","globs","quill","irony","owned","codas","droke","corer","plene","yesks","thing","aceta","unset","ymolt","dicts","gleet","arena","sloan","gnows","appam","jours","gulet","urman","cells","palay","crios","acyls","entre","tride","rubio","punny","fusee","polar","almud","glume","enols","mauzy","gales","hadst","dargs","raked","ginny","patly","super","katis","sills","shied","ralli","lowed","oleic","yerba","glike","scaup","muvva","snubs","sayed","scent","ogham","momme","wills","rakes","beano","redid","retry","miles","great","dowak","mousy","fluff","dunam","annum","makai","sooth","until","posse","raggs","biach","reifs","stein","geasa","lokum","wombs","emoji","emics","tupek","punim","pyrex","pinko","ulnad","hemps","pards","tauld","iliad","puter","clavi","baulk","nudzh","aking","pince","ngram","hissy","goave","wirri","choof","purge","civet","marsh","moley","micas","flans","thali","endow","ralph","lemon","dupes","liwaa","fence","drown","tokes","tifts","cawed","terns","sagum","bucku","aegis","ouzos","deity","braks","seams","malae","tsuba","eying","tecta","devel","ankle","pequi","roved","acros","ghees","comic","solve","nondo","roans","yelks","shaly","fonts","masse","needs","gamme","spaer","shuts","cosec","aimag","rotan","teddy","drama","nuddy","cowks","fulls","yobby","immew","coaly","ganks","roost","agita","piony","reely","bloat","mogue","brims","trave","reune","dalek","yakow","readd","styes","bouge","owres","yajna","trash","vices","kneel","yearn","koses","sense","plesh","cronk","music","suite","dancy","ixora","lisps","tryst","cyclo","marka","trifa","nains","yapok","rowts","croft","laich","calmy","wanty","voces","salet","gists","uptie","dalis","moyls","clone","vertu","chuck","togae","khazi","crunk","wilts","chace","emmas","noire","dirty","knick","mokey","kideo","ousel","bogie","vives","ankus","embus","wally","wimpy","ploot","outdo","spout","imido","uraei","eches","jirga","lacka","topos","jafas","meith","twill","tulpa","annoy","brads","wreck","kibei","soyle","ships","axion","barny","hives","teloi","swoun","scoot","tolus","cycle","tolas","reiks","ovens","plots","orach","heame","gynos","hutch","varec","lucre","huzzy","hippo","slink","vomit","fouat","slice","swigs","scowl","joins","resat","gouty","cruse","fates","quads","singe","viols","shiny","trams","zoism","kibla","boyos","razai","spaza","kofta","invar","repun","brock","evohe","fifth","dacks","fonly","sunks","steer","golps","plack","plets","krewe","souts","tally","idyll","abord","conus","swire","exams","retem","kwirl","reman","orans","shlub","agrin","vicar","margs","slung","demob","aapas","pirog","slits","slomo","poena","zayde","soare","crows","pipal","pyoid","macks","danks","canny","boats","rides","sizer","quiff","cowps","radge","whirr","redes","bumpy","nyuse","mauka","ousts","jerks","imshi","soles","peeve","sheva","uster","sughs","steam","flawn","femmy","ousia","weems","herds","dumbo","ancle","baals","fever","pioys","poled","haith","pikel","sujee","dills","wared","chizz","nexts","leafy","reink","aguti","venti","gerle","raves","helio","blind","eliad","canid","silen","biose","iller","besee","oliva","padam","raced","nicht","sylis","liger","rowns","boked","spugs","apiol","bobak","ocker","allod","overs","nunus","arnis","feers","mares","palsy","honks","choss","beefs","aches","limpa","spick","besti","yokeg","beans","turfy","mooni","pisos","bares","thewy","oupas","lyres","bowet","khyal","mapou","padis","rojak","jowls","truss","hurts","neoza","ovule","boots","temps","tardy","jeans","craws","cades","dholl","boldo","noter","suede","anvil","lises","realo","gusle","nivel","leany","mukti","cedar","undug","dells","adoon","snars","talus","genas","naked","fiscs","ilial","heled","janns","scope","whity","smuts","ammos","fogou","katas","tamas","cutin","pacta","akara","sensu","winds","staid","janny","futon","titir","sabal","karoo","proin","widow","pends","aroha","wafer","bairn","premy","nioza","rakis","renos","oribi","draco","barky","bolks","pussy","cutis","pipis","areal","bialy","kerky","glaur","speel","daman","mudif","zuppa","carps","mengs","warps","ervil","pawaw","plaur","bassi","diols","apply","obias","geyan","broch","bundh","dappy","jives","sooty","uveas","caves","drapy","litas","clegs","nonis","kunds","urdee","zouks","haats","bling","cawks","chins","inked","caneh","seral","naiad","runed","eards","murly","weete","derma","fanos","lunas","hapax","stags","incle","recta","khirs","mapau","nowds","yukky","greet","penks","ranks","iddah","weens","swayl","gimps","ollas","tamed","fykes","easer","ruing","swish","keirs","shets","whear","zaida","bonze","waits","dykon","trugo","joule","durns","staph","pryan","swain","gares","zoeal","kubie","sowls","gloss","clubs","gunge","dunsh","spawn","jumar","xolos","ensew","wacks","rents","tenes","gawky","nitta","seron","boxen","yclad","peles","yonny","raddy","sloot","knags","frati","angas","grees","nowty","coven","dutch","poops","horah","evils","poufy","crazy","samel","wires","sissy","erbia","salve","zolle","mbari","doris","hoved","coths","chapt","pneus","swelt","imids","runes","chomp","bliss","ruach","ebike","tehrs","frore","donny","viola","gloms","jabot","nyaff","wekas","antsy","sycee","amend","renin","lymes","twine","peavy","yeven","besom","hajes","gucks","nabes","gager","hayer","piles","bodes","ginge","torii","oleum","bezes","ravey","rowed","unmet","easle","waved","nevel","valid","humor","zurfs","praps","obied","trice","froze","spods","turns","gammy","herye","peart","grits","yampa","pinda","geits","busky","floor","zonal","elute","joyed","fubby","porno","daals","kerel","bever","gamin","darcy","broke","fours","loves","hails","retag","regle","enate","kangs","hubby","wicky","albid","syren","taser","aweto","saros","shade","pints","igapo","polis","spitz","lated","tizzy","sizar","molls","fraps","wists","glede","mugil","fidus","nakfa","ovoli","bords","grego","aviso","skive","gyres","picky","hefts","sairs","penny","ruins","amply","stumm","guars","porus","bhang","annal","sofar","soils","parry","sable","scags","inset","yayas","queen","hoves","vawte","surds","beady","goths","oxids","barbe","cages","arras","durum","kukri","apsos","strop","hayed","chefs","holds","lusks","amaro","mills","hinds","misal","enurn","haars","hoick","fundo","paper","amore","naids","thurl","seeps","dairy","tutee","fruit","eloin","nrtta","luter","mandy","turrs","bason","plans","muntu","skags","ordos","arpen","aulas","gramp","uncos","ashed","arval","hylas","planc","sites","sager","guido","wyled","malts","washy","digit","coifs","hived","cyder","urged","shops","phone","bobas","crudy","simba","taata","niffy","pipit","phyle","petty","hiree","serrs","toise","shiur","kogal","nerka","clans","thema","cutty","haufs","lacet","scuft","coder","filmi","cycas","taroc","chaya","cakes","talcs","fleck","tomia","typey","mante","siler","henna","ceros","wadis","waxes","coved","unwet","sinhs","elver","sculk","voxes","vilde","lengs","hoofs","unhip","degas","edits","twals","haham","frena","defis","myths","pease","sways","court","fairy","rears","kerry","beaky","mopus","snool","mausy","resus","lores","berms","belit","dered","tonka","lipid","belle","baiks","aging","hasty","mungy","joram","pogey","bombo","sorts","kiter","pinky","suers","blype","aloft","pales","crake","nones","tronc","surat","charm","fifty","bewig","bored","foils","envoi","rappe","easel","dodos","opgaf","povos","doric","ohone","patsy","salto","vinyl","moups","aspen","quipo","junta","bunas","flims","scapi","cobbs","rhyta","hover","hasta","stoai","goest","goris","auxin","magna","tanna","ezine","wudus","lolls","inula","fluor","steps","dexie","quoth","bolus","favas","pools","borak","ajuga","buffe","billy","dorps","pukes","dowie","feuar","duets","kranz","adoze","ethic","raree","yobbo","vises","fuzee","ngapi","taste","shrub","fetwa","verte","trems","click","darga","rowth","lotas","mands","neons","ronte","baccy","meals","meril","hoing","quash","moyle","raiks","axite","mucin","intis","occur","malik","fiers","greek","byssi","noobs","raird","rober","halma","harms","pyuff","skoal","adrad","neeps","pogue","mivvy","elegy","satai","snits","saran","hakas","posca","ngaka","shuba","nonas","clefs","feign","wytes","twigs","ratal","biker","saggy","aloed","unify","scaly","hooch","scrag","phots","hyson","swing","khaki","proms","tamin","pivot","grabs","bolix","edges","brens","bough","ceric","umpty","batik","neive","scire","rends","ilium","boody","zendo","wites","menta","flats","albee","apgar","fixit","admin","vowel","tares","stony","lubed","troys","clean","tints","plebs","phuts","zoril","suete","saker","gooby","kyles","crues","honer","saury","decim","pyric","envoy","arils","mulch","trapo","howre","virus","zilla","swell","tucks","yates","burns","vrouw","thick","mened","spree","rozet","bunjy","zingy","tousy","totes","erode","koran","treat","ileum","maggs","ummah","alays","grody","jouks","pacey","impel","cangs","regia","oller","omdah","brose","halsh","zoppo","meves","range","perry","galia","iroko","bonie","oxers","nooky","rearm","graze","vinos","boson","limbi","henge","donut","douks","recks","jocks","twier","rojis","gurry","ultra","hongi","blips","oafos","howso","dojos","gleek","icily","abnet","views","accoy","amrit","burls","palps","thugs","rynds","homie","zocco","botel","carns","lipos","dubby","parts","stack","gosse","knurs","trine","banky","round","rache","mines","molos","liane","tapus","choom","bruhs","endue","winch","ewers","ranis","yolky","nemas","sneap","parks","ryoti","spado","beaux","mutts","merry","bouks","arete","tynes","spent","rossa","janty","samek","adopt","koaps","dozes","burks","boite","wails","ferny","stout","binky","tease","neato","belch","chaap","haram","krona","padle","beach","omdda","hyrax","hoped","money","owing","stoln","orgic","zooty","poney","knead","adage","facta","shire","munge","gills","dufus","tanka","deash","nival","stets","chine","rarer","knaur","verso","snags","hillo","soggy","rouen","onery","soars","flock","womas","jammy","dorts","drony","serve","power","whoso","gonna","absit","peans","jakes","nurds","panes","bight","pours","crink","apter","cokey","paean","liard","poopa","piety","salse","nazes","sakai","kakis","likin","safer","crawl","foams","skulk","azole","patch","azyms","meums","ovoid","earns","bitey","sises","copse","durry","oping","pocky","pipid","zupan","indie","pearl","ghyll","vespa","braxy","ables","vatus","kists","doved","ficus","lauds","nicks","eilds","crier","abura","putza","utero","scrab","meuse","pakay","zings","glebe","mawns","kacks","bicep","varve","ninta","opera","quins","inker","belga","rural","semen","glens","sugan","neals","tomen","daled","frits","reses","scatt","peisy","pulao","chest","pross","conge","smite","otter","resin","lears","adrip","afion","curbs","smeek","pfftt","eales","chads","gadjo","cleik","floss","xylic","saags","seedy","cacky","bayes","droll","heald","baker","crena","divey","abrin","quoit","stewy","steil","bevel","darky","hevel","laths","slive","taxis","tewel","jeels","telex","ricey","afros","repat","bleys","abuna","waide","foehn","siris","misty","limax","prexy","thank","ernes","arias","squiz","cloop","opter","mavis","doffs","oater","korai","zacks","kafir","apery","zooey","klang","whizz","slack","routh","dawts","werfs","pudge","lodes","horns","helve","neral","misch","yarta","chivy","bosks","yuppy","plomb","odyls","orlon","curvy","inlay","tways","sebum","oread","sloid","elops","shalm","osmol","bigot","coves","spule","sapor","lawin","gokes","tuned","pepla","copal","bobac","trigs","smout","richt","wares","profs","aunts","bared","barge","ounce","shiai","losel","vitro","souly","doles","build","scuba","creep","cirri","sythe","basis","frape","ulmos","phasm","muxed","worky","deeve","lader","palas","jeera","wacko","skens","toles","rudds","hajis","fussy","hamed","machs","steel","heast","admen","pshaw","acorn","gelds","vegie","quasi","reups","banjo","teeth","pirns","forme","doats","lahal","sysop","tatou","shand","howks","tante","samen","dream","exeat","raspy","imbed","teste","eskar","braws","cluck","korus","rozit","gaper","nitro","seter","meant","knish","pryer","shots","finer","miens","lorel","speos","auras","cysts","fumer","padre","funts","breve","chowk","morts","brung","puddy","oxmen","humph","mures","steak","perse","agama","appay","bingy","pluke","akees","trunk","hokey","phyla","balus","feens","cover","spoil","unpen","fawns","hough","bhais","bludy","roaky","veeps","razor","gorms","splog","snabs","atuas","enrol","brack","snies","vizor","roosa","choon","frite","spane","pedes","mirvs","izars","pions","shags","cocco","hafts","tweak","latte","feeze","hythe","cocos","daily","monal","culex","squad","ludes","blobs","ceorl","boors","vaxes","thrum","javel","yawed","miked","flaff","gloam","durst","eyras","epees","roams","baton","gebur","houff","filet","judge","whats","deman","stonk","braid","pengo","peens","botes","minks","stars","batch","dowry","goats","jehad","stoic","glove","besat","mitas","tangy","moyas","nodum","flory","gerbe","volts","rubel","paddy","mompe","jazzy","pulse","ingot","warty","rengs","serac","emirs","dashy","seems","stuns","wiver","geeky","raged","loran","ranes","enjoy","puris","yufts","reedy","intel","araks","deets","reorg","barfy","grice","hands","boteh","knubs","frais","furca","fenis","jetes","skean","kedge","tumps","tiles","porth","naice","nanos","hends","plore","powin","steno","spice","lipas","chunk","styte","assai","wilga","smeke","mulsh","dorad","drent","rybat","lieus","shakt","raffs","kebob","chats","gisms","sneed","salep","feely","lifer","pobby","plump","screw","wilco","xylan","hejab","speil","merls","train","polls","slick","yowls","davit","hypha","arroz","phynx","kiers","totem","curns","nards","pongs","faker","soces","akoya","pyrus","dames","pirrs","plews","etuis","serge","xeric","eidos","malis","repas","abius","poind","biffy","aport","owrie","umbel","study","bruja","quois","acron","meads","rills","nabby","bemix","awari","jasey","heels","teggs","agami","patas","loans","pattu","novum","progs","litem","avens","pirre","grain","forze","viand","arcus","baser","woods","shier","sputa","geeks","gatch","glost","koura","flora","samps","upter","kapas","state","rists","knops","mizzy","lints","pooey","untie","nymph","sehri","manto","argot","foyer","barmy","pates","trued","botos","orped","sider","value","hukou","layin","draft","ditzy","budas","jupes","rohes","heeds","karee","folds","visie","wried","sewed","lurch","tansu","soups","borms","laugh","rebab","mawky","downy","slush","rayah","cripe","unkid","tuque","bhoot","niche","noxal","booky","minas","faqir","minxy","frust","swims","kinks","dying","hapas","wests","apage","daggy","bunia","crias","affix","natto","matzo","snebs","loppy","snuck","doxie","bezil","loipe","luxes","glift","dorrs","frows","cable","sayid","gawks","gnars","noria","walis","milky","cuvee","laser","mobos","kulak","taxes","fuels","husos","erupt","iodic","limns","whose","jeune","emmew","stash","jatha","lazes","vendu","taiko","punka","rohun","salpa","dyads","ronne","agism","alcea","niopo","derro","ulnae","weald","somas","terza","psora","cause","unsay","vexil","abear","cuffs","sulfo","bruts","cedis","juves","runny","caron","monie","firma","baned","redye","debag","kreng","razed","cramp","nouja","lairs","scote","lurgy","morra","togue","decyl","dress","thesp","gimme","abaft","gular","shojo","hokes","gambe","edger","melty","noisy","garda","crank","laxed","zabra","paste","sabir","outgo","sidey","domic","quids","quack","scuse","skaws","awols","niced","reems","heads","tears","guqin","peise","natya","toter","quags","fiqhs","tices","oxeas","conin","doled","remen","licit","ulpan","psias","baile","flaps","ratos","spivs","smaik","todos","bands","camos","louse","yarer","gouts","becks","nauch","mingi","honky","laked","ramet","yirks","torrs","tenth","baize","serks","lyart","ukase","clank","jeons","misdo","jacet","rewon","darzi","burin","iodid","wrote","umras","south","senas","neuks","drail","crise","togas","nawab","divot","kutis","voted","bwana","missy","woold","ureal","toady","alkyd","rayle","macte","mamil","ioras","yetis","garre","wheel","afire","torus","splay","teres","eorls","names","yabba","fondu","tweer","gasts","blahs","jowed","slake","rigor","snift","trant","upped","tramp","fluty","label","golem","santo","fient","makar","diyas","deeps","whole","winey","thymi","nigga","tayra","turds","kotos","imide","elmen","noggy","pashm","nooks","cushy","blams","nrtya","raddi","rifts","gutta","cairn","scrat","capon","fells","bodoh","lyted","volti","aerie","maple","chaps","grail","saola","tarzy","sacra","abash","sauba","kevil","roguy","seaze","manie","joust","dural","scobe","debes","pleas","mairs","shaul","aloha","bitts","affly","amowt","tared","hogen","plink","puker","unlap","algal","hoyed","jirds","yawps","ganch","dekko","young","fiver","quorl","snood","queyu","hertz","batts","panna","shelf","predy","carbo","choky","anent","trank","pagod","bapus","takas","spare","bhuts","albas","arose","copay","atmos","potsy","rawks","pewed","goony","oggin","soots","pacts","darns","zygal","barfs","dangs","chava","texts","hiker","codes","ovate","duroy","crips","bunde","adman","mured","ricin","oojah","vampy","paans","skyfs","shout","grike","poori","vexer","abaya","exits","stoma","kiddo","theow","fifer","sloes","ovolo","feist","xylol","koros","adlib","tilly","lunts","chedi","ports","mucko","sonse","virid","jaaps","maxed","rokes","child","tikka","leaps","mbret","again","virls","spiel","plish","squib","genes","heron","nifes","seely","nould","locus","malam","dwaum","wilis","balon","peony","dazes","quirt","sotol","mtepe","tutti","feels","scold","usnea","sordo","paces","plaza","stump","neume","hadal","recce","baloo","masks","amber","burro","haere","phubs","leavy","goaft","manky","maumy","foots","wases","lacks","ebons","ylids","vaper","seels","rewan","amlas","mvula","gyppy","quest","fifis","dited","skegg","ungag","idols","soger","shash","briny","cromb","wenny","dervs","mojos","farcy","livre","alang","plume","nivas","akene","raise","bouse","umami","afoot","matai","gypsy","dunks","snarl","renew","whorl","riffy","ovism","panni","bippy","pappi","yuked","chado","snirt","janky","matin","golfs","volta","evens","whata","knarl","fated","glary","panga","rhymy","pasag","funny","cooty","gomer","faded","bowne","shott","perps","ohelo","cozey","sakia","poler","hooly","bosun","judgy","commy","omlah","cubit","etape","suets","swapt","iddut","zarfs","doona","heres","rosti","mangi","lobos","sprat","spuer","spean","roupy","kelps","mixer","gyros","start","agger","bones","reamy","baels","sarge","calls","staps","viold","imbar","pompa","chiko","dingo","romer","fluyt","galvo","lends","almes","mesic","fatwa","groms","crein","poake","creek","yoppo","goory","xoana","sarvo","coyly","ettle","sleds","boutu","thaws","cotch","aguey","xysti","moder","persp","sieth","pluot","tided","gadje","nomoi","metol","debut","phizz","kynde","gliff","nudes","ollie","gulls","stire","dooks","vanga","relay","album","toras","curfs","chain","nippy","wodgy","pogos","teiid","milts","rurus","shyer","diary","hoagy","upbow","tenge","lande","veers","vomer","iodin","wools","sechs","mvuli","lithe","psych","skarn","blaer","orfes","morae","bices","ecrus","tarse","bides","rauli","powis","leggy","myall","braza","visit","fecht","lathy","dolls","poopy","exode","fords","ficos","amigo","doner","droid","helos","sater","halal","rumal","wides","withy","alefs","unkut","sleet","towed","mulct","spahi","varas","flurr","herry","akoia","sisal","uncoy","muter","riche","shred","cloye","usurp","recut","stonn","pocho","tanks","nunny","vaded","rifty","jesus","milko","diets","pegma","winks","paren","incog","haves","topis","enzym","muffy","brond","meint","nouls","chaat","runos","stood","saics","towsy","rince","flava","allay","gitch","molle","snail","saunt","sudor","kabar","garde","pally","japan","deoch","ikans","agley","verre","gloze","glugg","rerun","tweed","dealt","tatie","skyed","kagus","fetor","serry","riots","hilus","mushy","pilus","softs","hears","bevan","awned","goops","pratt","hakes","vezir","suras","sayon","rorts","shist","atomy","turks","kheda","scall","sagos","flown","culch","relie","erica","sedan","tubal","chalk","tapis","rinse","dwams","machi","socle","fluky","rehab","khats","punce","punts","tazze","limas","putas","nohow","juris","jingo","feaze","repla","alpha","wowed","loper","clime","iglus","poked","motts","funda","glees","fazed","plaig","egret","sober","yrneh","kelty","koine","oiran","yowie","augen","moose","smoke","arars","deers","butut","mamba","giddy","caner","huhus","riped","radon","woful","meany","lying","ficta","quaws","tinas","marae","yexes","grunt","fiend","ainga","boral","miais","thrid","eaved","lodge","mazas","fixed","sayne","pikey","crogs","rusks","mechs","rokos","cowls","ouens","vexes","ourey","viced","royne","mafts","appro","oriel","barca","botew","anker","onned","balot","crith","tulip","noles","coble","ahing","kytes","inapt","fatso","thunk","scapa","bulls","mzees","naive","wadge","cavas","smarm","hushy","tuyer","mangs","eared","manes","siver","mpret","whets","units","abray","xviii","cheer","login","kalif","mambu","odour","waltz","hohed","falls","nevis","perns","steez","quoad","styli","carex","adios","hazes","veney","swail","gives","maron","torte","khans","pheon","shawn","bower","gowks","sycon","puggy","bayle","exite","pined","agora","fibre","kufis","sokah","toads","appal","octli","ruche","torta","wadas","froyo","lucks","gouks","droil","locum","dosha","lives","benni","akkas","ratti","pants","dully","gowls","chums","barye","moner","wedgy","khors","exalt","pekes","seals","natch","poufs","fangs","sheng","cozen","kahal","goles","offed","smore","cusps","telos","dosas","erect","sweal","smash","laxer","etage","strow","doers","sizes","tabor","tryma","roted","worse","nelly","axmen","biddy","pized","cauks","labra","soole","flail","shent","nidor","belon","graff","basts","punky","fader","tulsi","biggy","stipa","spiny","trike","bwazi","crags","mokos","laarf","spiry","craft","yager","sheas","woken","bises","lilty","gooly","bloom","glugs","knelt","merks","bruin","assam","colle","cools","snugs","bevor","pimas","kayos","lepid","orlop","false","fikes","blogs","redug","tasty","nyala","deoxy","ampul","staff","afoam","dilli","gaums","idola","jocos","hurra","rebud","noncy","juice","zeals","mouth","relit","polje","ikons","sacre","bossy","biffo","vaunt","gazon","smelt","viewy","liana","lifes","ketol","lagar","surge","wents","loofs","robes","alley","howdy","fanon","laund","dryer","manso","ashet","witan","gains","malar","barby","milos","pubsy","llano","loued","skiey","vodou","evade","repel","moton","raths","powre","gleed","draff","drums","basij","innit","comas","zinco","sahab","tying","clipe","arums","crams","abbes","votes","blunk","exuls","belts","teaed","shirr","tango","camel","hater","pungs","tetes","might","scats","dobla","hauls","henny","joeys","monpe","spied","sepal","aroba","funis","rhine","pulut","coral","clash","moust","zoons","actin","exile","cents","lapel","smerk","nawal","oakum","cueca","tasso","psoae","talcy","olein","mukim","coper","hexad","humas","kunas","aboon","curet","await","pargo","usher","nabis","onlap","riyal","tapes","fests","elemi","tetri","outro","lynch","jessy","sours","fauld","cache","remex","cooks","lichi","steal","candy","mothy","hodad","jowly","verbs","emyds","turme","rakee","plods","shaya","bisks","serow","bidis","blash","furls","gifts","genip","ology","leare","tamal","emyde","slish","pooch","batta","pinup","oxims","vardo","couta","yeuks","matlo","grone","dowls","monos","sonsy","rhyme","caved","wooed","bobby","buded","muiry","fools","mania","puffa","lants","madar","thete","drant","grata","gussy","wheft","olent","spank","fugly","culls","cider","upend","whipt","yabas","sowce","stoor","nikau","muras","stoae","wasps","lefty","japed","goody","wigan","begum","kempy","slobs","blush","rolag","voema","sabed","vexed","thees","wacky","convo","campy","quirl","dizzy","skink","oncer","alumy","penal","taira","tiyns","fleur","latus","mambo","garni","which","dodgy","biota","uredo","pique","cuifs","snibs","wrawl","sunts","cesse","tykes","lysed","civie","weise","soily","infix","tarot","jukes","biled","hiems","covin","laxes","holts","terfs","pails","nerdy","elven","guano","nowls","shiso","thrip","payed","dekes","atony","phese","degus","glime","rodes","tecum","yogee","osone","rolfs","sture","primy","midge","sabes","decay","doves","pronk","pouty","glogg","trags","quipu","puces","jewel","bends","flowy","nudie","gighe","pavie","romal","mandi","heils","keema","bitch","ready","gambo","agued","papaw","abhor","avels","oaken","shtar","recco","adaws","prole","keros","sauna","gompa","egers","statu","bunce","metic","noops","bries","jocky","paxes","gybed","knout","dowdy","prosy","naunt","nevus","perts","stere","bulbs","mvule","brave","rigmo","ejido","farle","lusty","shope","nerks","apols","felly","tocks","basin","qipao","doubt","jibba","puttu","reput","watap","graip","fanes","panny","reeze","bomoh","angry","soddy","domes","kayle","sabji","spica","benet","rapso","inurn","yogin","laccy","yarra","emeer","bedew","azine","okole","jurel","hepar","whios","diced","shuls","locky","pyxed","subas","vivas","warts","crwth","forks","dirge","blare","naker","sophs","evict","bayou","malmy","cered","pervs","bunco","built","cooly","annus","muids","tases","soote","piing","grate","bimbo","pells","aleck","raids","boxla","renga","fiats","seepy","qajaq","spale","allen","sweet","wexed","moria","smily","fides","ronuk","forel","jalop","verge","rumps","rosts","balas","valve","stoke","sargo","agers","fedai","gulph","kinas","tuxes","break","homas","grith","diram","deres","cames","washi","laces","swiss","yaars","oldly","oicks","sayas","crack","umrah","hardy","leech","snied","narks","hawed","salon","estop","nitto","snods","lardy","strim","poult","rolly","gunas","oueds","mollo","queme","natal","pouch","pikas","ngati","ooses","kaika","gauds","sedum","lavvy","maims","warre","fumes","emove","pecia","idant","spoof","pious","vitex","soave","acari","quena","lenos","oxbow","lassi","avoid","pulps","gault","namma","mitch","motto","situs","coted","zhush","honds","latke","karzy","sucks","gobbe","virga","olden","docht","detag","pooks","yugas","gongs","omdeh","snaws","voice","argle","noble","artly","arles","gulfs","vuggy","melic","waldo","frate","praus","pouff","fease","trull","biris","karts","fawny","kudus","posey","easts","xrays","feued","femme","zazen","haded","costa","prows","impro","bussu","mabes","andic","danny","toyer","holms","prahu","bibbs","vuggs","waned","moker","kawas","druxy","basal","podgy","cribo","marls","sheet","abuse","nicey","tharm","oaten","spets","pluty","dosai","pongo","tammy","biogs","hides","cadee","rotty","frisk","slogs","drool","sasin","pelta","yamen","plash","fowth","pozzy","kails","grued","murrs","yarto","reach","adown","unces","surra","tutes","chive","guimp","lefts","bourd","horst","alata","fremd","hazle","nidus","theta","helot","moths","conex","purga","lungi","yukes","gurge","curls","mbira","sarin","sumis","curli","deary","gubba","pizes","blate","armil","puers","tuffe","yeses","gerah","paris","bhava","woofy","tuner","thane","plavs","paged","dikes","ramus","gater","cored","slubb","pyxes","devot","unmew","welly","exome","bambi","chocs","wroth","whelm","vetch","mutis","loxes","odyle","purrs","asyla","swede","smush","dunce","bubal","telic","feese","madam","cling","nexum","bests","puhas","maxim","gecko","epoxy","spins","minae","reave","rainy","sarir","tubar","ocean","areas","tifos","sakti","canty","sixty","mezes","kreep","neigh","olive","nimps","pappy","birzz","chawl","ajwan","jobes","mailo","whams","geist","loirs","sweer","pleck","riggs","babus","ragis","lazzo","miasm","tubed","okrug","matsu","shank","bawdy","haets","ammas","limma","numbs","retia","mamma","dempt","ortho","pleno","abbed","shlep","bello","stare","clads","gigue","calla","potae","mirls","yauld","tooms","deevs","crons","boord","kuyas","mools","alibi","delos","akita","metre","ruana","khoum","duroc","urine","jeers","raped","reset","clear","docks","veery","howff","skofs","legno","zoris","pesto","soree","zexes","mirid","bided","pance","fidge","nenta","jiffs","layer","gobar","lotah","towts","claut","crate","brink","minge","waged","skeef","porks","tombo","dynos","festy","gable","wangs","troad","poaka","wedge","impot","plaps","kibbi","coden","demot","panne","naled","gaily","aspic","varix","sixmo","dewax","shako","ither","chirp","noeme","rines","regie","azurn","lapse","caphs","betid","yince","oners","isled","aggag","abaca","gimpy","uplit","dules","chiru","atter","cubes","skugs","piner","amuse","solan","vacay","tippy","piccy","boohs","tagua","guava","kembo","sdein","snark","waled","owlet","pieta","ponks","quota","sents","quibs","wairs","sants","kells","plats","butch","efits","fados","demos","songy","disas","tomes","hurty","mowra","pecky","jeton","vlogs","jarls","paspy","roral","tower","msasa","bohos","tenty","scogs","peter","prost","ramin","muirs","punji","nacre","ollav","buran","theme","bully","welch","didos","deaws","trump","unagi","pucer","tozie","caple","eeven","homed","graal","antes","rosit","lunet","parmo","mahem","afrit","lapas","visne","runic","sensa","mbube","shock","overt","ginzo","metal","saddy","styre","datos","wrong","discs","emerg","aswim","pulks","toned","iddat","hussy","chose","fagot","toils","aeros","baiza","intra","ileac","holed","ysame","yuans","glams","kophs","gimel","geals","retax","ommin","bilge","houfs","aulic","cucks","ecads","alamo","corgi","hydro","smear","glows","duces","golly","snick","dahls","queue","thegn","cecal","baith","mirah","corny","amine","morna","woady","narky","greps","hires","parma","axils","hoten","muled","kecks","arets","vrils","mixie","sawer","mucro","byded","photy","narod","unold","bafta","spims","hibas","pence","ayins","teens","flags","herps","loped","poalo","frita","roars","frabs","anise","pigmy","raine","tarsi","circa","queer","gopak","kebab","nakas","afear","films","kidel","jakie","flisk","mixup","peaze","coded","muils","phyma","preif","peaty","basks","fezes","ryals","kyloe","oints","cocas","sugar","pocan","peeky","stage","howls","pahus","lipin","arish","sniff","tents","frets","odals","sheds","brawn","thuds","vibey","dhoni","swink","mbars","ditsy","palls","ephas","coati","herms","clock","titar","urena","whens","haems","party","mulls","powny","trist","wilja","resid","alike","pilch","abore","frize","wispy","moity","tides","spaed","porge","bivvy","salis","savvy","belve","mawed","papal","valor","silex","slosh","kesar","pound","coset","roset","linac","peaky","kukus","hewer","duels","locis","hefty","lawny","ducat","smirs","liven","corms","twats","snobs","pridy","lymph","nduja","grume","herby","ourie","repps","veles","tongs","trues","cions","trone","gripy","disci","thyme","meris","thymy","unked","felix","ownio","dewed","gungy","hamal","vesta","rivas","daker","roopy","bifid","puses","feare","sammy","joist","azido","fluid","pilau","vases","nisse","rubes","twite","skeos","field","lumpy","halva","iched","organ","shown","murks","moted","bazar","adder","snack","calix","neram","afoul","weber","nemic","rouky","bundu","sewen","light","coxed","vised","tonic","modoc","bison","fitts","smith","moste","fists","unios","tirrs","valis","ozeki","gelid","stear","owner","baozi","namus","filer","fyces","mutes","fundy","dolma","meech","grads","varan","class","jirre","hymen","sprod","loyal","noded","murex","qilas","refis","rotls","morin","fitly","spams","hovea","blaws","bizes","woons","moruk","mungs","hevea","oboli","slank","keeve","mahal","yarco","fraus","brays","sorer","askoi","apods","shine","runup","pogge","tonus","rowel","lurry","clied","hangi","hoove","obole","undos","cutey","dried","sadic","makaf","maker","dauby","hudud","bails","culti","bocca","kliks","unleg","soops","bocce","awash","blots","pomps","arked","moran","welks","nosir","aryls","cross","quoll","cerne","mhorr","dozer","ileus","tyees","lusts","arhat","paise","house","tawer","pyxie","mowed","miltz","curch","tyres","pilow","derny","level","bents","reine","outta","coops","nasus","cobza","undam","dores","mihis","adapt","theic","ocote","mesia","truer","seeks","skyey","probe","raith","locks","jests","meaty","naggy","learn","snots","ghast","belah","ngoni","merge","dites","braes","wired","bball","appel","shura","moron","crime","vaped","darts","girrs","eaten","ramie","mohur","artal","birls","funsy","sides","timbo","cleep","nanua","besot","villa","blite","sieve","solus","bacon","piths","krais","imine","quina","orcin","omasa","adits","tuart","stela","buchu","humpy","sings","mells","eppie","syrah","pulis","njirl","howay","aflaj","hoods","orant","glias","liter","diver","couth","swarm","exult","otaku","badam","tragu","vivda","nuque","zinos","lozen","deedy","welke","mocus","zappy","miyas","sabre","poupt","solar","flegs","query","menad","odahs","pyxis","enews","apers","mecha","ctene","comps","amido","birrs","prore","barro","drone","lolos","ornee","omega","divas","bowie","fiord","stopt","laden","datil","goyim","othyl","loops","mimsy","kings","sylph","swept","hallo","syeds","gamps","varda","lyric","crins","mazut","perfs","capex","triol","sprag","pekin","gumma","ovals","tomos","foggy","peach","slews","axone","beals","wight","ample","atopy","unbar","about","grove","figgy","strig","ofays","fuero","hovel","kemps","saids","loads","maneb","netta","benes","scugs","serir","hooks","lames","bunya","hwyls","nasho","qubit","ached","savin","boned","dreer","prima","retam","algid","ogive","fakir","harim","houts","skene","downs","putid","trons","kabab","luges","haulm","rumbo","thoft","meous","tikia","rater","eolid","lines","rubli","furrs","cowan","socas","karma","asway","woald","gusli","brast","skirl","clots","buhls","gorbs","drouk","nabks","conto","aredd","occam","carol","kendo","gaffs","hyleg","crome","spear","mayos","spine","vinas","gorsy","tiefs","danse","nelia","coppy","brees","bajri","tries","guise","norie","bafts","buffa","dopes","paals","ethyl","koffs","goors","nutso","egads","melam","lambs","wived","aygre","aahed","treif","igged","sculs","rayon","mudra","klieg","brank","pegos","caffe","splat","ferer","doddy","odist","feces","adzes","sorry","yield","stria","mogra","ditty","garbs","aduki","dudes","hulks","sayer","medii","yeesh","quake","kivas","pichi","thans","wifts","coeds","lings","stour","resol","therm","royal","damns","flexo","agile","goels","dregs","greve","sowfs","metho","mochy","duxes","sturt","brane","sunup","parve","twank","logia","shiok","rungs","cosed","tibia","hyens","louie","roily","pight","sades","pilon","oozle","skeer","peevo","dears","coact","minse","tinks","onkus","vills","geeps","riems","perne","flubs","spoor","prowk","glout","seton","waxen","scams","filos","assot","wirer","regex","kotch","bulks","birks","drier","mimis","kypes","opery","trout","ojime","lowan","aevum","wushu","fujis","scrip","wasts","susus","mogar","limey","sanad","plaas","kembs","snipy","means","nuevo","scudi","myopy","redly","coost","seven","bohea","skelm","venue","wheen","slaid","agaze","macaw","remix","miser","varus","purin","stunk","scoug","sower","spend","frise","azide","luces","moons","tatts","bract","hikoi","cures","ptish","swizz","kreen","mased","clews","sevir","manul","crest","hyena","verts","donko","linds","tombs","churl","credo","yokes","maums","platt","vleis","trads","dench","tokay","chars","spain","feart","maddy","plowt","cundy","bihon","rimae","celly","hence","psoas","altar","apnea","rosha","abjad","aimer","aurei","rushy","eater","saith","goldy","rekey","bizzy","mysid","claws","board","crees","offer","quonk","gawds","sicky","gamma","selfs","sadhe","bikky","ootid","yukos","donga","meses","aband","leans","achoo","dowse","dents","backy","boney","conte","flocs","taros","macas","chuff","kirks","cared","sugos","hoaed","poire","zooea","fount","tungs","knobs","prigs","eques","kudos","blurs","fubar","bokos","ligge","cardy","jorum","hudna","stews","gamut","rapin","limen","keens","chica","unred","mired","yeads","moppy","tolls","tegua","renal","blonx","weamb","agons","ewest","bonds","homes","timed","skers","godly","simas","howes","boeuf","gobos","zippy","hakea","stand","quoif","atria","roker","frons","freed","braky","uhuru","ulans","riels","sleep","physa","liney","vairs","merse","sonce","grasp","bream","chirl","zigan","tegus","congo","mosed","zines","loral","boron","moled","words","chott","nuder","poems","thump","trior","aider","comby","qorma","miche","prems","louts","ondol","gecks","igloo","puler","aures","cyans","vegan","cyano","nites","patia","scrob","mooth","doppe","trove","gaffe","asper","pilum","squaw","tansy","speks","rosin","toing","bagel","boles","conns","retox","awake","scops","festa","norks","gloop","slows","onium","vogue","limbs","malls","ruvid","ninon","tagma","speir","ridge","elbow","revue","spews","gyoza","dawks","potch","revet","heals","nests","moers","tread","sloyd","plier","sokol","popes","tabla","courd","thews","metro","sonly","laura","onely","alure","risen","purau","dyked","vacua","kazis","toffy","cubeb","reran","genre","ruffs","wonga","tsadi","redux","fired","baked","shwas","slued","atoke","orate","gogos","chide","needy","meeja","tassa","clues","banty","laned","pikis","upled","locie","raper","subha","kanes","lomes","seths","panty","debar","masur","latch","tabun","diene","opals","garbo","maven","heths","shoud","picot","naams","lycra","gonof","jambs","sulus","savor","aunes","pasch","acute","tinny","tween","cacao","gugas","lowts","fanum","poulp","trugs","drats","zilch","scape","abris","hynde","spurn","likes","leets","knurr","wadds","kited","nowed","courb","embox","yokel","leger","peats","zoeae","tossy","turps","gowan","vouge","tails","jokey","shtum","cajon","bepat","nills","seats","hexed","hocus","bidri","bucks","minus","spads","dures","updry","finks","gilts","grimy","stele","lever","fuffs","genet","shady","bonus","carpe","knive","spued","fands","fromm","qophs","netas","incut","wrens","waken","intro","lowen","matte","praam","nanti","stoss","towno","doups","eaned","knack","acres","kaing","puzta","mesca","pudsy","mysie","goier","vivre","jiber","paven","menes","moist","entia","swobs","manis","suits","duked","amoks","kurta","pings","nused","wanes","mates","durgy","wagon","infos","bilal","swags","oaths","fenks","uhlan","domed","fetal","litre","amaze","nancy","pelus","garba","syver","gobis","crema","jambe","tenet","zeera","pallu","rabbi","luted","alien","aping","pored","haole","hinny","sopra","tamis","awarn","lowly","evoke","chevy","incas","timer","curer","bride","wizzo","galas","urite","poset","leugh","barms","cheet","dukun","thumb","thars","felty","biles","wazoo","bunns","laver","sabot","shogs","mirth","repot","suing","swarf","carle","cooed","trail","laevo","scuts","garri","suses","kylie","humfs","sorgo","saugh","widen","mitry","honey","capiz","musit","mythy","socks","mesas","pokes","thagi","thana","rared","rieve","mends","cunit","scudo","fasti","canso","horny","pyral","gaita","dwalm","cotan","pavon","price","horks","bowrs","bubba","toyos","asana","dicks","bundy","trans","virgo","unlit","strum","humps","dryly","kauru","funks","shrew","mocha","scaws","toyed","uvula","lytta","pirls","nicer","felts","dinna","beare","dross","scram","agila","decry","yeahs","heedy","abyss","tilak","canns","fedex","elogy","yippy","quayd","kroon","biped","rubby","kitul","teaks","saunf","flote","techs","beige","lemur","eager","galax","zakat","coram","quire","sudds","popsy","touns","madge","cords","pumas","vatas","cissy","bedad","gundi","basse","ponts","drock","vison","lysol","slade","gyrus","hymns","limby","glads","flitt","aigas","pigly","daisy","voars","duded","talon","retip","satyr","corse","chuse","warby","caulk","lovey","qanat","ridic","maths","humic","mayst","wines","powan","roufs","gooks","mumph","titre","spode","rapes","marly","tabes","azure","dunch","first","amiss","winna","cosie","fizzy","ruban","kulas","skirt","amene","unpay","yrapt","pucan","pores","butoh","pekea","imams","meteg","spred","waves","piton","plain","ooaas","poohy","bydes","jetty","grrrl","setal","bundt","shyly","numen","cedes","dirts","glode","excel","suent","cella","bedye","kawau","fanal","bilby","cadie","almug","sabha","junto","lysin","abers","beads","wauff","zorro","helms","grows","flosh","skeev","pibal","afara","raias","muser","remap","damps","colts","bikes","deter","softy","wyles","scale","mammy","tacks","nenes","darks","teers","kajal","varna","kaneh","lowse","perog","diana","rafts","acker","ponty","ordie","lowns","khads","seare","probs","plaud","savoy","sadhu","cores","route","oarer","yills","vakas","goffs","korma","habit","idiom","diwan","writs","misgo","pilar","gowfs","elfed","laddy","foins","clown","doole","kites","hells","whins","bolar","etnas","goons","mowas","comer","poboy","imbue","misos","musts","wisht","equip","hafta","manor","dools","naris","hulls","teals","apeak","carap","ixtle","gnarl","rutty","yeard","crans","jisms","fetus","acers","shorl","borer","yodhs","fieri","elvan","foram","panic","rawdy","bawls","coney","yawns","lyard","chavs","moves","leone","mails","clast","unket","keyer","scuta","recon","bowed","stope","jamon","ratio","kauri","ducts","tummy","radgy","jaded","mylar","henry","valli","wersh","pollo","civil","balun","lunge","poove","saved","goofy","faves","begat","unman","wolfs","neski","tarts","wizen","whelp","avize","phwat","scurs","crems","acene","hains","tavah","zulus","prodd","rites","cursi","gilet","heids","louns","media","samas","maill","jings","pupil","brunt","banya","juror","boeps","opihi","glory","yamun","rangs","desks","kinky","aphid","strad","mecca","sansa","bangs","pinge","nonna","drill","slurp","waddy","enema","sorda","wulls","fundi","musar","papey","lance","wrast","peare","ivies","kinin","pooty","dowds","grots","stirp","pandy","horal","vulgo","hacks","criss","linum","mards","maran","ergon","prion","wheys","plead","subah","putti","cogie","fisho","cured","nempt","oulks","timon","shoat","ogmic","hammy","akses","aways","souks","demur","wroke","jaune","hamba","flabs","darer","baron","sowse","namer","jasps","defat","saber","pheme","omnes","poyou","twirl","flake","meths","calps","corns","idled","talak","chals","matra","lanky","stroy","peace","lited","deawy","edema","orang","rasse","pinto","nomos","evhoe","isbas","peeoy","narco","warns","vinic","papad","wicca","titup","orris","skols","prams","cates","lotte","boaks","hoach","seers","paedo","murls","alist","jacal","risus","arvee","kiaat","nairu","tacit","zamak","boxer","slips","foray","doper","synth","cital","elpee","cigar","lucky","baggy","truth","planh","jimpy","brawl","alose","gashy","pruno","track","conky","barde","weeps","sting","notam","cilia","permy","capul","irate","covey","mudge","prays","woads","gamed","swoln","guyed","adyts","urned","pares","munts","lenti","faiks","obang","litai","plays","bowse","sculp","tiddy","munja","poeps","clomp","moral","husks","phial","cetes","marcs","kalas","paisa","twiny","cooze","piley","tizes","aired","rabic","dogan","knawe","hokis","teras","ocher","obeys","vares","mrads","kaids","softa","fauts","pecke","amino","gurls","polts","gobbo","rudie","gotch","kutai","pudgy","rafty","basha","scorp","aumil","axile","bayts","pinon","sixer","melas","habus","pongy","sepad","exert","caese","kents","mazer","loden","clems","pomas","gally","finis","puffs","firry","opine","scaff","cheep","laree","olona","schul","bromo","myops","rufus","doily","tuile","synds","loast","faffs","ayrie","usage","peris","meres","stain","bench","boyla","roast","sheal","maula","ryots","azury","sulls","hated","anoas","abamp","beaty","belar","ahint","stude","mazed","gyral","anile","rafik","redan","semis","wanky","rebuy","repro","crape","fills","gnawn","cines","bugan","acnes","naved","glial","spots","wheat","roops","bazas","stool","umber","visas","milds","kutch","enact","toeas","keaki","signa","hoogo","unlet","tsars","tondo","ament","disme","osetr","stats","forge","pudus","sakis","quila","cloke","losen","commo","venae","manks","ended","satis","cytes","khana","seils","corni","amies","skelf","beard","muggs","yeves","funic","clach","lucid","vibes","niffs","laker","lokes","salat","quink","picas","sneer","brogh","spink","altos","baldy","fisty","cacti","beses","iambi","swole","pinks","famed","roany","sanga","lacky","gadid","aidas","obiit","eagle","relos","lappy","azyme","fazes","glade","piler","syned","stich","lossy","glisk","ledge","kondo","llama","epact","etyma","borks","goner","undid","datto","lollo","gothy","wifty","cutes","kicks","rawns","mopes","chias","nonic","faros","punas","stymy","taxus","brent","suped","tangi","wined","ranns","ticed","rants","decaf","slime","segno","ataxy","goafs","ureas","druid","caffs","howbe","leuds","proll","meake","zambo","riser","spasm","noise","steek","speer","neeld","cepes","trust","mawks","bleat","rifte","scrow","shart","paras","moved","lubra","toper","caird","shard","gyppo","gorps","urate","quass","adept","lidar","purse","waspy","fella","appuy","avise","coupe","insee","immit","syphs","mobby","hogoh","trema","bossa","soyas","robur","xerox","praty","blows","gesso","grise","zaman","maned","bunko","gudes","piker","tripe","atimy","odors","virge","moory","grouf","silos","fuses","scans","fowls","moues","benny","aggro","babul","gundy","daddy","jilts","vinho","logic","reens","skank","wooly","royet","fogey","zesty","jeely","thawt","sauts","busks","swith","corps","taths","torse","abysm","breme","bogle","perks","moble","dwang","bible","bring","klutz","motus","nexus","borne","begad","socia","zebec","noias","nodes","sprad","rarks","cakey","speak","dhals","rumpo","dalle","mahrs","todde","preke","jawns","ghusl","goosy","badly","cleck","fugis","taiga","roads","jutes","basil","celts","racon","blood","prest","bumph","selfy","tabls","bijou","ciels","aedes","laird","primo","burgh","wolly","nerfs","nixed","wrier","anole","kikes","uncus","munia","mauve","admit","bongs","stint","odoom","named","pugil","barer","grams","slebs","jehus","capax","bools","sloth","zamac","bilbo","trope","hesps","sonic","obese","kippa","mesel","scree","later","sauls","tirth","porta","peags","peres","citee","shuns","boule","trooz","parol","halwa","slipt","jaggy","unsod","mealy","grids","carby","troth","hound","duomi","dadas","sirra","ryper","yuzus","slane","spans","kicky","rizas","illth","garbe","fagin","dirke","brosy","booze","stans","winns","tuktu","jiffy","execs","blook","ahead","hosta","genin","unbag","ranke","teugh","sieur","busti","mewed","stane","centu","dwell","brach","decor","girly","petre","flack","opsat","snowy","copra","sinks","dwile","souse","chore","jimmy","mathe","slump","aides","tyler","redia","blimp","clops","ycled","effed","mourn","towse","pedro","doser","bagie","cardi","undue","duans","bauds","peery","mohos","uneth","popos","vizir","kamas","ettin","quyte","refel","borgo","jawan","finds","gamay","papri","mbila","pinny","clift","byked","noahs","quawk","palmy","pagan","pubco","okehs","sidhe","cruck","filar","kanzu","gases","volae","abies","sigil","spore","looed","chyle","haiks","nokes","rotte","roers","kidge","lacey","youks","breds","nsima","mange","aught","copha","turbo","klick","wanta","bungy","sands","adawn","chiva","proke","jeffs","swabs","wrick","algin","warez","bowls","saree","facet","sluff","clept","budos","holon","morel","yacks","grown","coign","bahus","world","chela","tiyin","quats","toker","coots","weird","hoons","tepid","arced","faery","butts","wauks","epena","hosey","spifs","carte","rabis","forum","wisha","auges","kerma","stamp","eland","yonic","koppa","stock","bhats","lindy","echos","sword","tokos","noshi","antic","hangs","rotis","yucas","anyon","sweat","coals","slaes","douce","gypos","glops","blade","agaty","rhies","toffs","cibol","abaci","strew","cones","roach","lutes","obols","burgs","halon","laldy","uncut","halts","lumbi","twits","drave","menil","panax","sayee","pervy","faena","simis","roary","seine","facia","crone","mogul","raffy","cloys","unode","nisus","vangs","moldy","sunna","pseud","bendy","amyls","citer","yaffs","sural","capri","paves","glaze","oculi","dawns","gombo","beaks","totty","frere","puuko","ledum","twain","wanze","raxes","avian","truce","bardo","creps","nazzy","goras","specs","balms","moler","crapy","boggy","ouija","twink","weirs","tubae","setts","seeds","drape","lexis","shaps","gymps","dungs","mohar","aftos","hydel","panto","bills","kinds","mauts","cusso","gamas","dance","oskin","brews","facie","awful","laigh","slays","abcee","karsy","troke","rebop","naily","acing","wales","topic","split","typos","sexts","gluey","chime","simps","moper","mutic","heapy","evert","bobos","yirds","event","litho","array","gusla","genty","shore","unpot","raita","fared","ceder","ombus","bodle","doums","mesem","slims","ronin","trods","spalt","sepia","braze","walla","kriol","crout","chana","zhomo","pring","spide","lysis","lamia","embar","yauds","fillo","picks","mondo","budge","adieu","karos","ender","colza","eched","psion","jerid","weedy","ayont","eyres","wrist","leese","loath","pukka","serre","ahull","drole","gaurs","bions","deeds","claro","dusts","ghoul","evets","today","derns","tunds","pumps","quich","ennog","divvy","glute","wavey","clogs","griff","swees","boyar","sodas","taxed","tyran","tsubo","irons","ikats","edged","melik","nudge","agate","seamy","avast","tunes","spite","velar","apres","charr","moana","naieo","palet","lotos","kants","burps","cirls","nowts","herse","yecch","pules","chips","teams","oonts","faked","viver","dizen","clips","allin","throe","phene","modem","woopy","unled","rebit","refix","lemel","labis","pouce","wolve","tacts","mover","surfs","imbos","calks","jolty","glims","acara","poggy","dight","kombu","fitch","purda","uteri","hents","koala","ewhow","looey","opsin","tophs","blaze","drams","gaddi","acrid","would","tonal","begot","mobes","oracy","swath","cinct","okras","wonks","dinic","flout","hoord","tappa","casus","kight","ecard","labia","falsy","derth","tufty","nitre","dives","lakhs","twirp","sekts","palms","segos","beers","spume","huers","crocs","mulga","akker","thale","snoek","ocrea","nolos","strak","ninny","gripe","gulps","sluts","pouts","wakes","tushy","yurts","toshy","koori","letch","links","pizza","ebena","uveal","bayer","woody","gator","moors","flops","refed","foxie","russe","ninja","magot","razer","coked","giant","culet","stink","metta","flirt","furol","marua","fayed","jigot","podos","nerve","skogs","ponzu","yelts","dopey","diota","yakka","whirs","baddy","ploce","covet","kynds","celli","hinky","spawl","burra","stows","rumes","jihad","rager","bajan","letty","zoppa","havel","armer","nosed","redon","maire","levas","sangh","blank","error","earst","ladoo","genom","kaugh","toots","pinds","cobby","whelk","senex","poted","sweep","nepit","meter","yfere","clung","tepas","rawly","pubic","layed","basho","kilim","shoyu","shook","glean","reked","agria","mieve","womyn","jugum","tacho","oozed","hones","elder","firer","suave","morph","zebub","pacay","gulas","vigil","mikos","reign","padas","lords","mains","viffs","erose","mokis","tophi","hoxed","gaids","gyves","stept","axles","fonio","quays","runts","tight","coned","sengi","abacs","nasal","midis","snead","pudor","lover","sicht","uraos","moten","poesy","terfe","raiah","denim","guppy","loges","turms","coxib","foids","costs","stoas","coups","vutty","holks","dawds","stell","caret","skier","izard","zills","nomes","scena","strut","balut","sprit","lieve","liang","arsey","cheek","cills","zikrs","testa","rugby","orbat","ratch","botas","hijra","tiges","ungot","hilar","kyang","acerb","basan","phony","groks","liver","rived","origo","arise","wanly","ident","kiasu","kanga","kyars","payee","imply","ephod","mensa","moles","slots","oktas","culty","waite","ouphe","neddy","laddu","yarak","inion","asker","malic","mynas","kagos","syrup","islet","scifi","rasps","watch","deros","pelts","udyog","selle","grind","whigs","arett","reata","pinch","takky","educe","nobby","pekid","kiore","kinos","crare","milch","poovy","squee","freon","clams","dunno","kaiks","tians","thirl","pisco","bozos","supes","mogas","scarp","zowie","scody","sesey","amahs","loofa","tarka","baloi","scour","creds","rigid","looks","tozes","nocks","majas","kwaai","wroot","bluey","koras","biffs","balmy","nulls","kiley","bints","waift","budes","spier","swore","typic","zedas","rahui","brusk","pawns","debur","nyung","hazan","sauce","panir","darre","heath","quais","binks","bawrs","fraim","firms","wazir","pumpy","assed","furor","flask","jomon","taals","manta","drome","aunty","mango","hexer","talar","luffa","prees","delfs","doeth","dogal","sigla","ratan","tepee","nuffs","olios","theek","liked","tsked","prism","gummy","lurgi","argue","snake","ratel","preed","pitch","lauch","ainee","tendu","bungs","ulema","treck","evite","leuch","comal","exies","pewee","nogal","salmi","nates","yokul","flank","hared","cavil","hecht","abune","jebel","scarf","fetts","ratas","liner","flung","eensy","meiko","glace","rello","skell","testy","cries","jacky","calif","lytes","lobus","fnarr","tewit","ogres","staig","wexes","tabos","outre","gored","natis","bolds","eruvs","makes","roche","lathe","racks","amole","baste","bings","blocs","rummy","wokka","cadis","deify","platy","toaze","imino","jemmy","chess","plook","codex","potts","mujik","malva","chirr","azuki","meats","bosey","worts","teary","aboma","whoop","vitta","allot","carob","pzazz","milks","areca","madre","flick","carvy","zonks","dulls","darls","lamps","depth","adats","sicko","lacis","rompy","flews","haunt","color","jello","aloud","durzi","tumid","chaco","stank","whoot","goves","slurb","shewn","feats","kingy","fango","thack","adust","thins","gurus","miaul","volva","ephor","dykes","traik","donas","lepra","queso","dhoti","skobe","lingo","scand","nebel","duppy","tahas","frigs","folly","sadis","litie","clapt","ptype","fogle","maril","bawds","soken","fezzy","bushy","clote","mixte","oxime","curio","alias","socko","ponds","sikas","sushi","gleys","forex","phobe","brief","chick","benji","apace","chiel","quits","oorie","aiver","wises","silds","unfix","krump","growl","gawcy","paddo","sorbi","brise","limps","pause","goose","hunch","colds","blume","trapt","uncle","dipso","ouche","mawps","quete","broos","shaky","duett","nyuze","butty","tichy","sorra","sojus","inbox","fugus","unaus","dobra","stobs","souct","wingy","agamy","canti","chawk","pelma","milty","scrub","facto","swads","sowff","steik","quate","silva","lagan","blady","birze","woman","vasts","myrrh","doyly","rymer","siege","perky","stilt","timps","mille","aquae","chile","coled","limos","umble","mases","mirrl","penni","iftar","crine","prose","goods","yexed","leper","beret","artis","blert","gules","nexin","topes","buxom","rugae","hansa","caser","reddy","unrid","sedgy","tyred","cloze","leaky","trace","pakua","cooky","kelpy","boxed","actus","binit","roins","robot","vired","carbs","aggri","tenia","unite","abram","kraut","tosed","knuts","sangs","borty","fuggy","lousy","forty","grant","glums","exeem","shuck","sured","nmoli","repin","style","chill","hakim","vying","bonks","cheth","codec","pakki","drank","djinn","spall","mezzo","strap","carta","prove","homey","trins","manet","esile","cheap","sharn","praos","isnae","haver","miros","guaco","vends","cozed","nagor","ottos","currs","cento","wince","ottar","nieve","loner","banks","pulas","dovie","kurus","meson","radar","soths","burnt","snyes","yedes","metif","brits","wryer","rowen","rioty","benne","tulps","wowse","nikab","largo","irone","atone","cruds","klong","ahent","podia","pubis","ganev","snare","dogly","pryse","worst","trial","malus","pacer","meism","black","duing","jaunt","pilao","woose","ligan","stirs","brool","blebs","dykey","point","sozin","rompu","peggy","avail","botty","tased","flamm","rover","aroma","pases","beets","harts","glaum","pical","fault","spoom","coxes","welts","waacs","uplay","piert","twang","leuco","meles","fuddy","verry","pyres","boric","ulyie","groat","roups","kakas","bikie","cocus","ogams","raake","jolls","skunk","sdayn","cives","ginks","rails","dawah","bobol","clods","jooks","pluto","miraa","gemmy","theft","sasse","faddy","calms","rodeo","giver","kests","satay","ekkas","tratt","elude","scran","homer","fuzzy","napas","mache","revow","chubs","calle","winky","beted","payor","bilgy","fancy","ubacs","hutia","batos","yohah","paiks","tidal","rinds","spaul","runds","owsen","bosom","grump","tikes","decks","emote","micos","share","yoker","ryked","mazes","geode","hobby","routs","aiyoh","cunts","liwas","bamas","purty","reing","oaker","fears","minor","pyots","gayer","heave","kirby","enure","berme","oleyl","venas","zaidy","ovine","wasms","abort","coopt","mazey","caped","vealy","paced","ictus","pokal","veiny","limba","odder","kooks","intil","kluge","incel","tosas","snary","cleve","tales","crepy","stake","vauch","taxon","mangy","aight","sound","serfs","sepoy","fugal","calos","acned","annex","vatos","picey","crump","hetes","queyn","lorry","coffs","pyros","buiks","aspis","sedge","macer","fouer","tunny","taunt","stent","aided","cusks","dread","visna","carts","spunk","geums","alurk","merle","pooly","hempy","bania","talls","leary","unpin","miner","laika","tholi","oasts","howto","boaty","boart","catty","nolls","riato","riper","ruote","aldol","eyers","tards","puppy","blown","glans","siroc","schwa","larnt","annas","hinau","unsub","metes","flamy","jnana","blain","taels","jolly","cunny","zerks","feres","prook","cinqs","roust","locos","begar","veale","awoke","mohrs","amnio","tromp","rotos","shirt","hares","third","worms","damna","dints","herns","patin","dexys","strip","wawas","femur","murgh","fenny","minar","subak","buffy","enter","hajji","doofs","doggo","aburn","bodhi","chang","trock","doges","kitty","chiba","pasta","ozena","bunty","iches","dodge","mokes","liers","unmix","ascot","right","sango","momos","mesal","neemb","dooky","thorp","junky","wifie","rivel","tugra","aglus","pises","mercs","wader","milly","nouns","bilks","aggie","loris","terne","foody","nurtz","cerge","vinew","atoms","kopek","salue","baken","segas","fairs","juked","tiros","germy","yaass","rumen","tuber","pasmo","droit","pipet","pivos","trows","memos","frowy","mardy","thiol","neeze","liker","ayres","lumme","veily","wilds","civic","neats","baits","dozen","roles","mashy","whift","ledgy","boyfs","netes","pujah","numps","abask","tarps","sutra","haste","texta","lyase","lenes","derig","pooay","lilac","pured","movie","fight","saris","nibby","fordo","petti","daffy","regar","titer","mocap","agues","umbos","bonum","ewked","yanks","dearn","moods","inerm","trier","bajus","rougy","crays","prowl","vacuo","gajos","recal","shmoe","inver","rahed","bound","felid","judos","kipps","zooks","coofs","facer","oinks","blude","nicol","compo","arsis","prink","other","arith","linch","whies","coate","macho","fugie","mayor","troop","prunt","fiery","psoai","kalpa","droog","vigas","ylkes","kulfi","buoys","azote","brats","binge","passe","quims","gonef","salty","drest","umiaq","sneds","tryer","tempi","pling","adobo","zimbi","runer","goety","lares","goxes","raned","kaons","sheol","groan","heros","udder","pirks","bused","fusil","yodle","azons","spill","roons","punto","cozes","duffs","sield","sarod","adnex","algum","boyed","gusty","archi","drops","freet","yealm","motif","glass","mafia","sinds","farro","ondes","luxed","cavie","derms","dzhos","taint","mindi","fermi","voddy","reerd","minim","fleme","opium","artel","leaze","resto","slurs","hosts","shoon","animi","satin","jubas","gonch","moong","abrim","fouth","ramon","sophy","selky","breis","blond","aisle","allis","barks","smaze","brute","crims","stook","husky","dabba","uncia","feint","scuds","beery","geats","wamed","dusky","eughs","zoned","ditas","shone","humid","mafic","swack","sherd","barra","rabat","houri","nyssa","loess","guilt","caeca","broil","yogic","mohel","vixen","kelim","daurs","stogs","kikoi","flirs","nirly","tipsy","molto","flows","happi","rapid","dowle","libri","dined","layup","dinks","booed","mebbe","cabin","dayan","pouks","visor","patty","lazos","rohus","aeger","toons","rendu","khaya","skosh","fanny","leeks","drupe","tinto","clair","sutta","laten","gilly","erase","durra","mages","horme","awmry","drive","radio","roven","bathe","tranq","perls","jumby","glatt","creme","sassy","oubit","punty","oches","theed","amble","basso","iring","stair","fatly","meved","ustad","cuspy","maser","luaus","bemud","sudan","neosa","tauts","whish","mobee","toman","samey","clepe","certs","bdays","dreck","prone","weeis","pilea","ester","macle","soapy","amain","nappe","byrls","teade","meids","ouphs","oware","nihil","podex","laced","write","swift","haugh","onces","presa","devas","bombe","micro","mongo","crimp","swung","mozes","neafe","brahs","rival","taigs","murra","kasha","ailed","plunk","meath","bovid","tocos","drubs","versa","admix","ngoma","teend","golpe","tolly","flips","lazar","surah","essay","towai","koans","sigma","zombi","ferms","aleph","teets","kerve","fauve","amins","buats","depot","unwon","whims","perch","jhala","drake","rhody","embog","unrip","seeld","paaho","ranas","asset","forby","rukhs","styed","plait","mneme","seise","erugo","flors","faces","dagos","loxed","lochy","leery","taces","aliya","nomen","noxes","grans","eisel","unary","trass","sulfa","optic","appts","poral","gyals","odeum","ansae","tunas","trips","gulfy","recur","fiche","pardy","hopak","cippi","terga","marle","prods","misto","kombi","walks","pilae","jades","hoast","vowed","retin","dhole","helly","spaws","ravin","egmas","finny","colby","phota","opted","shays","brags","dinky","nooit","jokes","muons","rooky","poort","yagna","pents","stunt","jewed","whisk","naiks","fjeld","kusso","dital","vower","vlast","hylic","lisks","loams","zoist","safed","mufti","labda","thaim","fuzil","melon","lowry","yente","edile","ingan","happy","polks","bantz","sheaf","fusty","matza","madid","cocks","legal","tests","bogey","wicks","mahis","jelly","anime","taken","rotes","miffs","laris","spire","booty","unput","gazes","jibbs","pawer","atmas","lubes","masus","frank","flesh","tocky","petos","faith","cours","boygs","recti","jaups","semie","nitty","rodny","tiffs","sinus","skald","comes","bancs","mants","khula","acoel","tyiyn","hotte","pokit","kyack","padri","award","laufs","pride","skail","apart","skeet","emmys","mochs","ritts","moobs","dorba","heiau","dauds","peyse","noone","larks","folky","yeeek","aesir","wunga","gravs","solds","grovy","grues","malwa","borel","coles","kipsy","motes","ictal","ziram","scare","agush","kaama","rebel","mocky","yiked","slabs","daine","siens","askew","krabs","laggy","serum","gulch","vatic","namaz","hurly","songo","niqab","tinty","nixes","cheba","terai","swoll","sklim","opzit","sperm","rouge","otary","embay","kusti","brain","clype","aster","verve","pekoe","fulla","sibbs","reiki","oking","desse","fouds","walds","mgals","pesos","acton","roues","comix","derat","clows","squeg","weids","hades","ducti","aorta","avine","hairs","benga","fined","tubes","smick","erned","sales","losed","airth","dolos","hasps","woxen","doped","chufa","dolce","thong","brand","nexal","birth","scaud","nadas","eleet","octet","mires","sines","given","narcs","fumet","pesta","gaumy","rusts","urges","liths","rakki","adore","thots","drags","vaire","fauns","doter","triad","tract","chico","skran","cogon","gunky","moggy","cauda","ayelp","elsin","gulpy","polka","dibbs","demic","ooped","posho","plumb","drunk","moals","gazal","sappy","raven","burqa","simar","staun","pursy","sects","axels","drere","shuln","mowie","marms","sails","choux","welkt","coons","sheik","buras","kitab","blays","lanch","frock","ghats","pareu","clunk","ruder","jiggy","irids","porty","quies","nisei","slain","maneh","icker","noust","apses","redos","snogs","panch","amiga","mezze","jinni","quare","motor","nertz","heben","yales","audax","degum","honda","these","dreys","knule","swipe","worry","deism","preop","nugae","chimp","besaw","forgo","mitey","decoy","skrik","ivied","agios","hyper","baled","vatje","tachs","tacan","fecal","dunny","kiddy","vails","hauds","aidoi","frith","march","wield","pyran","vales","kokra","kanal","temes","metas","rebid","jerky","gurns","comme","achey","trogs","bloop","wetas","reard","sukuk","antra","hilly","haily","ferry","furth","guyot","meshy","barre","pondy","solde","liber","omers","ydred","sorta","swamp","tikis","lungs","beigy","rammy","masas","cafes","cumin","blats","spesh","blent","antis","seder","dicer","neele","mosey","bakra","fusel","cavus","lirot","germs","preps","melds","faurd","schav","kindy","flued","gaped","aguna","smalt","adyta","zerda","combe","deair","horas","molar","amici","absey","gyans","betta","swans","pries","mucks","gasps","rally","nides","rorid","elans","sexto","scute","blatt","belli","olehs","minty","damar","flair","exier","index","realm","slats","malas","siled","tatar","legge","noule","topaz","saint","boner","whoof","roman","pruny","minos","suona","brume","flyin","booth","yeuch","alews","skeps","jarta","shero","joles","rebus","noway","macro","flour","sinsi","zebra","aucht","peghs","wacke","pelon","makie","welds","vroom","abjud","slojd","boyly","hoars","donah","slove","toped","baric","jetee","arson","phoca","cerci","sided","whaup","paver","bluds","cohog","prora","gaspy","zitis","trefa","farci","dedal","panda","chino","musha","ludos","hicks","naevi","mayed","waney","quale","chili","tasca","pedos","saeta","texas","sowle","lolog","spewy","fasci","posit","tachi","ghest","morne","scath","kaphs","salut","myoma","haler","fixie","viler","tinds","roper","punch","befit","jocko","teind","cided","keech","tondi","burds","ravel","witch","moile","bruit","oleos","yonis","bortz","jaker","acmic","bagua","pungy","kanae","logos","moufs","mouch","icier","shawl","sitar","sware","serin","unica","glent","willy","obits","tohos","douts","umphs","flump","talea","chiao","cloot","vadge","float","novia","galop","porey","dicta","offal","vimen","fouls","prags","racer","mauby","rheas","penis","calve","soums","taxol","dunts","whomp","dewan","ydrad","murid","shoes","fiars","swamy","creel","dials","burrs","umpie","mumms","allan","trees","motty","claim","yenta","ulama","pluck","aimak","mitta","trape","spiky","shivs","tempt","mobed","taube","michi","micht","trick","kilns","epopt","feoff","gigas","klaps","clade","naeve","enemy","extol","lofty","kvass","fesse","coirs","petar","muted","dauts","falaj","swies","bouns","voles","yores","alecs","doyen","check","rheid","banak","causa","zitty","stung","auger","primi","poule","lolas","lotto","waulk","yangs","yages","mavin","yodel","tabac","hemal","tinct","shear","bayas","lummy","refit","halls","hauld","whump","honor","adorn","grist","simul","brown","cecum","tesla","cymar","lathi","beath","total","breem","attap","chaft","mince","odeon","mulie","caddy","dahis","poker","vughs","ranid","deids","motte","pelch","bonza","flays","trigo","lasso","cadgy","vents","bumps","cooch","blunt","zymes","paten","quine","snook","jolts","surer","nalla","jutty","horde","rewet","teems","gipon","ebbet","porky","orpin","blitz","kiack","passu","frays","poppa","pests","anion","cited","noily","srsly","rider","gaged","inspo","lemed","scind","lobby","hogos","feeds","pshut","green","gangs","lobes","stipe","moira","gaudy","disks","buffi","scowp","basas","boeti","reins","potin","khoja","sarus","byres","venom","hairy","brers","yikes","akela","sulph","krubi","snafu","cajun","clasp","fakes","moits","slate","demoi","regur","wecht","sered","todea","mayan","withe","fadge","aioli","ambry","kehua","gibel","sawed","dares","reccy","stied","stade","nabam","yowsa","zizel","licet","walty","wreak","heart","mints","tropo","redip","cases","hedgy","doseh","hawse","every","kaput","sared","yawey","warms","skart","hurst","apaid","cides","sewan","coils","lurid","reaks","fungo","fonda","nanto","slubs","spool","denay","upbye","recue","brame","dotes","delay","jambo","topoi","beira","jelab","trild","orles","sukhs","quark","urban","maras","jacks","plips","pyins","semee","agave","argol","icers","mento","craig","earth","quork","wynds","vulns","shake","unlaw","bulgy","rumor","fines","toged","ratty","luach","peppy","lammy","dowps","yucch","cryne","quaky","dubbo","wards","reded","thelf","butle","fomes","douar","sames","gauch","smock","sixth","syens","yrent","ville","urger","raits","snoop","ylike","masut","addle","kabob","amass","huzza","hoist","hatha","yucky","airts","brash","getup","rubor","wifed","pingo","felch","sloop","della","wonts","lemme","alcos","duvet","snore","audio","hoied","buhrs","zygon","holey","unjam","amirs","fanks","proof","frees","hoses","scoup","fauch","aeons","prude","ossia","place","galis","zobus","stucs","bousy","ormer","proot","gumbo","dimps","ragee","agasp","hollo","being","demon","ginga","nabla","ataps","desex","neese","rimus","wited","pithy","merel","novio","eikon","vague","gourd","grece","redub","plast","raksi","torot","alone","smell","sowth","abohm","lumen","cudda","paire","erics","grype","pupal","imlis","corbe","galls","kybos","sworn","waked","skimp","shrow","hefte","tsade","piyut","jobed","cooer","niter","dooly","gemot","crypt","orful","unfit","femal","stang","broom","annan","biggs","rises","wolds","jurat","samfu","hecks","apian","cagey","tunic","ortet","parrs","proto","talks","pecks","balls","print","bakes","trill","nicky","phutu","griot","dorky","beins","cares","secco","tewed","heaps","fyked","pleep","pulik","yolps","educt","unrig","peasy","arrow","weals","konbu","jures","venin","gloom","proal","nalas","owche","qibla","woozy","avant","nazir","unwit","prier","banns","taxor","crick","sente","trays","caked","lours","ohing","coxal","nerol","muddy","rabid","packs","ionic","roses","storm","mitre","ruble","revie","poncy","oozes","blech","limit","rotch","heirs","wands","rales","soxes","donee","lepak","daynt","domal","zymic","fents","pareo","pownd","bunje","lurex","jambu","dropt","kalam","scout","kamme","denes","sists","muhly","tiger","flexi","boozy","dwamy","smoot","upran","pooka","samba","porny","heugh","pyats","gauje","beset","rebut","oidia","mamak","debit","least","levis","romps","fones","rocks","ybore","nkosi","poyas","milor","iliac","empts","krans","capos","taffy","files","block","pahos","amens","moats","baisa","jucos","zincy","hoors","velds","actor","manga","noois","graph","apoop","anglo","yawls","nidal","borax","imagy","halve","thein","bravi","kydst","molly","chemo","ovist","lards","shawm","vagal","birse","indue","migma","proem","casas","dosed","loamy","meets","yelms","oasis","preon","nongs","karri","tofts","voxel","torso","straw","dryas","deave","comma","sonny","ranse","penne","stove","podge","rudas","comte","crudo","corks","dippy","frond","kenaf","quouk","feods","sexes","dinar","linen","hexes","annat","parps","dhobi","loric","hiver","tupik","filum","posol","felon","gived","cists","maban","meynt","dusks","nerts","ceaze","think","kooky","duras","skull","rebar","powlt","lapis","hotch","mimes","merds","diner","sapan","tigon","kelep","karst","eased","mongs","beget","spurt","fyles","prong","skatt","thigs","spina","smirr","spork","mopey","molas","emule","blanc","doeks","alims","roist","orgue","lifey","ideal","mahoe","nipas","naval","wrung","gappy","cyton","daris","istle","aflow","cliff","loots","musta","grens","nines","spyal","hooty","gibes","swank","addax","knosp","limbo","direr","tilde","reney","leish","suber","sarky","attar","ruses","murti","draps","memic","hilsa","zamia","margo","liens","norma","forbs","kohen","preen","curve","poddy","ruggy","renks","brush","stilb","snash","orzos","mitts","yummo","estro","fibro","noema","seles","inwit","feyly","grize","toner","lites","malty","pilaw","dampy","hongs","keels","nmols","faugh","lordy","haiku","vicus","haoma","weeny","pekan","botch","doilt","wryly","kbars","croak","koker","grass","lurer","ghost","ngaio","ruled","hoxes","arere","vanda","press","cwtch","yolks","midgy","dweeb","flawy","tapet","alaap","grape","estoc","yogis","moxie","walls","teach","papas","wuddy","lutea","legit","knell","addra","peely","flams","daych","knaps","boofy","ichor","salix","norms","aside","agent","nixer","skody","mirch","pomes","pesty","rangy","ceria","dreed","fades","mazak","yurta","toked","hygge","sates","basen","dukes","keets","kievs","swirl","bibes","flaks","balsa","fries","nance","naibs","wimps","coomb","yelps","bitsy","pittu","inbye","sepic","brant","figos","maybe","junco","leche","rayne","emend","quail","curse","saves","wythe","tepal","goofs","minds","teths","breid","siren","slept","slopy","plotz","mekka","nunky","knots","wonky","bimas","turon","ghazi","spuds","noggs","nails","water","cobot","drift","chard","punks","unown","owler","ciggy","woker","parse","javas","codon","carks","cello","poste","pungi","meane","stuck","ytost","piums","lapje","kipah","resaw","seize","sowms","leach","alums","podus","nulla","roped","repen","crush","abmho","final","oundy","johns","jaxie","yipes","basto","mixed","ecole","aitch","react","melee","oxter","razes","biked","abbas","ulmin","gools","keefs","gytes","nelis","beefy","doobs","kopje","auris","wrate","diffs","mazar","lassu","twixt","oxies","omees","whine","tines","shish","techy","dorse","didis","liken","dobie","sully","moult","nully","deled","sighs","urase","muist","nazis","fudge","makan","derry","blink","ardor","zayin","huffy","guide","glare","atlas","raile","dawed","ethos","larky","adred","funky","smaak","moree","mists","buroo","shoal","airns","tills","antae","yomim","sonde","brows","dries","wadts","aggry","clame","gawsy","shies","almas","harsh","pujas","rilly","doggy","holla","aimed","curny","nopal","blads","sneck","thine","nisin","gemel","apple","deink","greys","bimah","mutti","furos","eerie","tangs","swats","voulu","metis","stomp","swops","azans","doits","musty","rated","netty","rugas","aheap","manas","taler","amped","newts","oxlip","texes","loons","hipes","aller","dimly","pommy","berob","wheek","cebid","canto","cruel","kilos","nifty","rokey","harpy","suint","gojis","robug","irade","catch","spart","maids","areae","vodka","eject","briss","infra","teffs","lythe","uncap","smile","elint","acted","botts","reals","stray","harry","joker","orbic","dente","veldt","xylyl","gwine","bolos","egger","sybow","oaked","sandy","ramse","rurps","servo","purry","barps","armet","gelly","bukos","ryugi","scoff","biccy","manzo","waver","sessa","tours","harls","perms","impis","booby","okies","whaps","flint","reive","bytes","frist","cline","stirk","glint","vireo","pitta","opsit","sizel","garum","bufos","voile","stims","diazo","laksa","geres","death","rykes","songs","dhows","bylaw","alary","cupid","lidos","leres","latex","leapt","acais","maedi","bawks","yarns","boppy","setup","luxer","twire","enlit","resee","reply","yards","aural","karat","adbot","toyon","ecash","delta","woops","kibes","skite","molts","shape","nanas","colon","toses","waxed","poley","amids","inorb","eatin","radif","muggy","coley","pagri","milfs","kraal","yumps","gryde","pawks","oaves","stabs","shama","cezve","slart","loach","dusty","tumor","doura","thous","gores","fales","hanky","patio","asdic","hayle","groma","oyama","boils","yetts","tauty","aphis","eggar","gings","merer","koris","tawas","pluds","flaky","guile","slash","eusol","tozed","gowds","amity","dulia","toled","prius","farms","stems","nache","token","palus","lairy","robbo","preta","emery","swive","muzak","lease","livor","izzat","lahar","handi","sinew","fucks","forts","leers","damme","moola","lotta","diker","stuff","monte","sools","ancon","oppos","calid","paolo","axled","akoja","dynel","cisco","avows","hokas","kimbo","smart","cacks","giust","inter","tweel","clous","chump","kieve","micky","piend","hogan","chary","feast","baons","xerus","force","golds","tadah","lytic","frags","touse","haggs","coria","sulky","loury","ameer","eever","hatty","adsum","ahuru","scabs","looby","judas","wharf","stull","diebs","cinch","genii","booms","omovs","rewed","spelk","slags","bowel","sorel","blimy","spyre","arepa","stark","swami","meloe","pinol","usens","linky","havan","clary","spits","sough","gruel","duchy","towzy","egged","yagis","teene","preux","titis","assay","hatch","grese","kaifs","showd","reech","giron","aglow","shote","daric","starr","duper","arpas","bitou","bumfs","bears","reame","chare","krays","gryke","roque","tawed","shans","clove","rotas","porae","carry","cauri","tuina","tania","verde","urari","jedis","input","satem","takhi","rumly","effer","titch","ringy","rubus","erred","flush","strae","crost","major","moeni","percs","zippo","nasty","scars","seria","jongs","papes","miggs","nigua","going","rewax","druse","ochre","brisk","plouk","zaxes","solos","spags","snows","jarps","peola","ropes","flood","pluff","corby","flame","gilds","acral","bokes","bandy","hanse","dikas","pisky","pudic","yonks","abele","jesse","nutsy","borek","hests","ditto","arame","angst","cleek","wigga","mings","nougs","wyted","earls","gelts","tufas","beryl","rusma","pried","ribes","usure","lulls","abeng","prims","ontic","accra","dolee","cager","vista","unsaw","frail","weize","axons","achar","seres","wembs","talas","imshy","azygy","years","niefs","torsk","sault","nipet","sauve","armor","dorje","rafee","boree","rewth","kalua","lions","shoed","scrim","grews","thief","alkie","pects","shola","cahow","sweel","keeno","steme","spard","dewar","yoked","dicky","plaga","auric","blued","kames","kerne","japer","jitis","canoe","adzed","redds","garam","manly","lowth","caput","chock","tauon","louis","gamba","unzip","ulzie","divis","chave","cubic","gayly","ajies","maqui","noons","haugo","skeez","fulwa","manat","leses","fouet","wynns","rosps","franc","roose","genoa","mamee","mulse","exurb","mucky","older","fails","plica","fames","debud","snive","wizes","eaver","lehrs","rigol","guyle","comus","wawls","hadji","amate","plugs","anura","sowed","jauks","noups","maxis","maise","pavvy","fritt","myals","sibyl","gleam","winos","cumec","ummed","shims","slant","crony","ginch","resow","vegos","cimar","cleft","alert","nided","patel","hahas","pagne","skyrs","sexed","dobro","towns","senvy","oilet","often","rekes","bedel","slave","stime","rudis","pesky","wawes","kenos","froes","pipes","jiver","rezes","tarry","soaps","ninth","refly","sayst","gowns","orbed","gluts","mussy","doven","agmas","frogs","cress","nodal","mence","mooks","forth","plena","goodo","spoot","jiaos","clart","alarm","rouse","runch","bedim","cruft","pocks","bibis","cadre","roate","mocos","gooey","mumsy","dorbs","beray","douse","kythe","hulas","kuris","nitry","chais","gilpy","seric","capot","sloom","booai","cacas","moars","sabzi","pipas","chaff","heard","sixte","truck","methi","wames","skegs","ulnas","iiwis","tweet","rores","pakul","pilei","coped","cowry","soler","calpa","sient","vibex","chola","morns","caups","croup","ostia","bevvy","kales","smowt","tribe","hosen","steys","koels","krone","pacos","gates","omens","etens","dings","bahts","amuck","greed","redox","libre","flaxy","guana","owies","wahoo","souce","yokan","kumis","cabby","comfy","ramps","cutup","steen","nubby","chynd","nutty","rapee","dunes","octan","sties","ancho","gleba","silky","treed","wikis","nagar","lezes","purps","bread","mizes","trawl","khuds","dryad","jubes","twocs","cokes","cabal","arret","dwaal","hints","grill","newed","solas","eloge","cylix","khaph","rejig","dolor","mucus","talky","buggy","paeon","messy","gapes","oncet","slugs","liras","vacas","purre","hypos","areic","styme","hable","peepe","vifda","shirk","notch","hedge","blaff","sages","scuzz","rotta","vajra","dikey","lovat","pixie","ammon","kotow","noddy","chewy","kurre","among","ickle","sanko","deals","murva","pruta","ramsh","shris","regos","busts","toric","bisom","unkey","oligo","buffs","novas","fleys","sewel","dadla","fiked","grace","spats","tacky","etwee","oasal","nullo","gassy","urvas","scows","rohan","kutas","lunar","metel","shits","voips","succi","bhuna","talpa","hings","bield","debug","berth","cuits","touch","dungy","pooja","typps","deffo","munjs","steed","mudir","tolar","ching","yowza","reefs","titas","craic","blist","scary","grips","sinky","sambo","unmad","vlies","slaty","nante","expel","tenne","vatha","sumac","cabre","glady","lehua","obeah","lomed","smoky","knits","tweep","frats","grays","raved","muley","teaze","prang","sheer","birds","holme","yrivd","girts","scoop","nitid","mated","snuff","gizmo","herma","rexes","becap","mossy","bivia","boult","blase","caboc","farse","bulla","negus","gnapi","shush","livid","quilt","kheer","astun","rones","femic","tells","bammy","pygal","sudsy","takin","yaird","onmun","pampa","chaws","repeg","kiths","marts","facey","toney","mosts","shtik","skear","chich","rille","alloy","raser","lazzi","ranee","basic","hafiz","mewls","withs","feyer","drabs","froth","frosh","rotal","leafs","mikva","nefie","curry","porgy","linos","gauze","plaid","muton","rules","sadza","slier","nears","hully","clang","valet","mayas","mould","crews","ideas","nyong","mezza","neems","hause","offie","madly","clags","bipod","drugs","bubus","lownd","genae","pousy","serra","preak","adhan","usury","rithe","kudzu","rials","goeth","plung","stott","deens","marvy","hanks","tusks","mutch","quote","ajupa","dictu","flits","gonif","foley","rubin","kutus","tabid","krill","pirai","gambs","farad","feria","quick","lycee","resue","dobby","rimon","neist","nanna","abaka","hoyas","malai","addas","image","snoep","afanc","front","harks","sains","plong","arrah","still","gayal","tarns","mixen","stoit","wefte","ebook","newel","dsomo","dicey","ricks","piers","roids","sones","aleak","crepe","lamby","chams","sella","bless","mokky","ghaut","psyop","halfa","louma","whort","nital","belly","rully","abeam","poets","touts","feebs","sauch","gypes","sulks","mater","salud","mommy","jumpy","brood","frump","didst","vinal","tabby","verba","itchy","gamey","salop","veves","orals","ethal","jakey","tanto","grein","kadai","typal","scene","niner","muxes","boong","roofy","humus","owers","leeze","durrs","roake","fogie","ursae","riven","birle","earnt","birsy","dorty","telae","rasas","bomas","elves","tanky","gnash","coast","ogled","tarok","burse","copsy","wedel","parid","faggy","teads","segol","malms","halfs","hokku","newly","yorga","budis","pubby","tonne","sleek","ceiba","potes","comms","glits","gaols","yandy","plage","panks","getas","aback","fasts","frown","weepy","geans","dagga","silks","kadis","agone","upset","letup","freer","pieds","quite","porns","ozone","conks","forma","rotor","drink","girls","ogeed","ember","mudim","cotts","bamma","dozed","navew","murri","juvie","frory","vapid","pyets","crumb","nouny","muset","colly","zimbs","brans","remit","twoer","malky","terce","bacne","broad","trets","canna","salol","yadda","vodun","roomy","acold","grrls","blits","nabob","sykes","wefts","firth","foods","mmkay","unsee","leaks","hizen","ebony","slily","peple","aland","fives","yirrs","phang","shaka","bufty","saddo","girns","peeps","tinea","phons","netop","gaits","liart","saims","kebar","wrang","scuff","moras","bogan","rooks","bassy","gluon","caged","wells","firie","prank","sitch","saser","viral","pukas","kheth","layby","bahut","recte","khadi","pippy","neifs","asura","rhabd","speld","lycea","busby","stole","viers","osars","radii","jotty","rejon","paint","spicy","fique","chops","abuzz","nodus","villi","gurdy","auloi","krait","voila","sunny","clats","bigly","hurds","hoppy","karns","misls","large","ganja","ontal","bachs","wends","fucus","yabby","clays","jarul","rikka","pulmo","whyda","usual","blart","bulse","divos","delft","delve","hault","mahua","binds","lered","elide","froom","eruct","viper","fumed","dolly","honan","grebe","justs","lauan","argon","spell","pawed","hotly","imago","cotes","cocci","novae","suhur","mazet","jeats","pures","gazer","shite","pendu","daven","agidi","gemma","conic","ulvas","donne","tench","manic","swile","harps","match","danio","tomin","elope","pecan","dukka","morat","resty","skelp","vagus","pared","shool","epode","sezes","cycad","tuism","yeggs","soral","zlote","puppa","lanas","finos","tolyl","advts","pizer","umped","immix","tyned","entry","debby","lopes","arvos","naans","wrapt","rivet","haint","maerl","babas","gamic","desis","quops","atoks","afret","sprog","photo","genus","mumus","pacas","ubity","amban","arses","utter","flues","nomad","diked","trait","deked","wears","rheum","spate","prian","aymag","narre","petto","frass","belie","scrae","bines","hykes","sajou","poses","psalm","pones","embow","alack","risps","gofer","beams","buena","kuias","aloes","yeans","poilu","rugal","cheat","adhoc","yerks","hance","fabbo","munch","fetta","clerk","shows","basti","padma","prief","kapur","zooid","thill","rondo","mopsy","dumas","stave","moove","huggy","ketch","camas","fugle","lipes","cains","meows","stork","kloof","evegs","douma","syncs","beeps","tetra","mouls","smirk","rypin","coins","frame","skort","rindy","troat","tonks","stoun","incur","dummy","pasts","fetas","herls","soppy","lacer","laiks","xysts","shoot","feyed","saman","troak","mouse","resit","loony","reast","sabos","chank","thigh","dandy","seiza","potty","dally","borts","ceroc","skroo","regal","chits","coxae","mugga","towel","agene","tomoz","blabs","ballo","zobos","fehme","heigh","velum","trois","volke","snigs","heles","glibs","taits","drear","menus","venge","polly","ensue","surfy","mbuga","lills","pilaf","nonan","saick","vigor","majos","rozes","tomme","hilts","fungs","slyer","paska","clour","julia","hulky","tasse","cruve","neper","moses","alods","apted","pitsu","dumka","larva","vehme","agals","fetid","backs","pened","yaups","merde","filth","udals","items","pauxi","wenge","floes","fidos","creak","ponga","mooey","cryer","plums","telco","tragi","groom","geese","pills","mason","piste","wuses","haply","garms","sofas","melos","anima","doomy","garth","pages","acini","ictic","wojus","enoki","holes","aixes","scone","unsex","naios","cimex","datum","busty","larfs","nasis","parms","sifts","jupon","blurb","hying","rocky","steep","hames","graft","drain","tophe","ladle","skint","comet","notal","tithe","gloat","pulka","semas","loups","issei","bawns","krang","pixes","tames","seity","ariot","piets","hullo","coses","gusto","leash","salvo","muruk","duddy","ecigs","oozie","methy","regot","daffs","order","argus","peake","ponor","emmer","erses","bolls","devil","roble","finch","mixis","stimy","grisy","quoys","mikra","ploye","monad","terre","mahwa","dorks","sired","parly","chows","khets","polyp","jewie","boobs","leant","lades","gonks","fuffy","yatra","tough","types","binal","farls","choke","chirt","vines","nying","rajes","putin","mochi","putty","ulcer","sybil","wants","toppy","lento","mouly","widdy","pulli","loggy","whilk","vigia","jembe","hemin","cloud","betel","rueda","klett","hooey","claps","eagre","saist","whirl","drawn","props","najib","sewer","hooky","duits","lazed","babby","juicy","steds","vardy","roums","balks","jaleo","furan","tules","kawed","prick","gades","adult","mooly","godso","ripes","audad","shiel","jumbo","grout","rooty","phies","lolly","foyne","briks","lamed","katti","cymes","kcals","wafts","kylin","feted","rioja","nimbs","lotes","boyey","lushy","maxes","bocks","truly","poons","brize","palpi","tafia","dhikr","hoghs","viner","marri","churr","saheb","lawks","cobra","races","rumpy","hooka","hunks","detox","ferly","parki","raads","moloi","shogi","whiss","pulpy","after","lured","divan","kiang","duped","tulle","combs","smorg","exude","noose","tuath","lived","sampi","oases","tikas","bicky","rates","sedes","senna","pitso","bites","alifs","matts","bosie","mebos","ceili","nomas","sweed","local","gyver","noser","zante","buppy","pedis","apism","gurly","petal","piani","moany","kimet","mauds","anata","reels","perea","sorbs","lavra","odism","dixie","targa","drook","squit","hoked","whare","caber","maleo","ditts","dildo","scion","laics","bronc","mower","colls","triac","bumbo","wowee","osier","deils","sokes","grano","shonk","deans","alkos","pepos","torsi","vulva","poofs","ducks","wives","gride","zests","axoid","motza","flobs","chant","penie","macca","boxty","karez","loure","dimbo","weros","funds","yules","kvell","yests","raupo","yerds","abeat","pohed","plock","jolie","ripen","sores","faine","gogga","flare","rogan","hapus","elect","prune","lupus","fural","yucks","caids","myope","sabin","ebbed","piais","fribs","cully","aiyah","whits","flier","mitis","emits","scyes","inlet","napoh","inned","rhumb","pawls","sapid","karas","popia","urped","tawts","glued","cavel","deist","pikau","goers","demes","hella","misky","yours","hakam","parev","ruler","musse","haika","pulus","dhols","aiery","timid","sobas","whack","found","lofts","radix","canal","sweys","becke","geare","whops","porer","pylon","robed","dazer","brule","cesta","namak","ronde","marks","mavie","shute","spays","omdas","untin","amnia","spumy","zooms","holos","honed","fiere","sista","kilps","bants","twirk","dured","ungod","limed","hamza","yoops","grufe","gluer","drees","sleys","frack","pahit","skied","welsh","rifer","loose","pervo","wongi","doula","nemns","segni","riata","gibus","abled","perve","argan","yowed","ganof","lures","webby","conia","taggy","buses","roton","shily","rouks","venus","hexyl","sazes","comae","bleep","lamer","omrah","palla","yupon","tyros","waqfs","jumps","pears","arcos","sylva","rooms","manoa","gravy","dhuti","lakes","buist","cusec","pansy","herbs","shunt","shirs","logoi","necks","cornu","kappa","stoup","wanna","plumy","there","fluey","stens","sutor","kugel","selah","dohyo","mapes","halse","mirza","hoyle","gaucy","abide","kanji","knowe","dorsa","saute","flics","stoat","kanat","walie","tasks","terse","poser","ziffs","inept","spial","combo","align","ratus","oseys","riqqs","urare","jatis","bezzy","rebec","parka","reede","clump","clomb","slope","dowfs","pully","fecks","warst","mucic","mitie","gigot","labor","qadis","yechy","myoid","bitte","snaps","zilas","sekos","peons","poche","malax","soldo","boast","endew","mores","quair","palis","mohua","hopes","huffs","selva","ajiva","bleah","aleft","dukas","kazoo","sport","onion","wakas","antar","chems","jarks","axial","sorus","stulm","shaft","users","spook","wench","segar","innie","leave","hayey","mormo","mimic","lohan","decko","lager","nunks","aargh","marma","faint","frost","calyx","euked","dsobo","zizit","puled","quart","vivat","tapir","reeky","okays","sprue","betes","aiyoo","bavin","puyas","barfi","demit","baurs","nosey","guiro","lavas","mulai","lezzo","medal","ranch","urson","pinot","molla","runce","foyle","prats","sloka","oldie","tryke","gully","skiff","spait","xenia","pioye","niton","pilot","leccy","pagle","naats","using","leben","tubby","prior","vozhd","zarda","bubas","riled","beast","caver","certy","yoick","sposa","linin","safes","lerps","schif","slype","linns","halms","dicot","bluff","algas","khafs","sucky","tired","ehing","redif","brins","vints","fishy","gaths","twilt","dines","parle","kente","yitie","manty","majat","moxas","lunch","knife","proyn","plims","perle","matty","tiled","rowie","libra","pewit","wanle","gormy","james","spade","cynic","ticca","manna","howfs","kempt","lupin","seans","stupe","refer","studs","whamo","biter","shave","xylem","tabis","plant","horis","eejit","vieux","boets","hired","hashy","chogs","axman","shaws","sclim","bowat","usnic","neebs","yourn","lippy","vivid","cohab","octic","bigha","makis","gulab","pumie","lefte","fugue","cargo","melch","saxes","spies","ameba","linty","unbed","adorb","swart","sexor","ureid","cults","poupe","packy","segue","sohur","potoo","acone","eagly","longa","rosed","jukus","pedal","draws","urali","emacs","tutus","outie","kevel","targe","goaty","meils","wring","clint","caste","tains","scopa","urbex","cetyl","roded","kissy","books","lowes","kerns","byway","fryer","tical","umbra","smurs","cabas","haven","thowl","kyats","limes","blear","bappu","briar","kaiak","gleis","stupa","dived","wiser","mesad","subby","pavan","fille","wiper","ylide","bodgy","horse","algae","salal","octyl","oxman","trode","ascus","plank","araba","sarks","poyse","rouls","bewdy","gobbi","pater","mooed","cutie","padou","doody","proby","birch","ragde","cheka","pacai","nesty","bowes","pager","octad","uprun","thole","amaut","moaky","tends","jomos","scald","unply","plein","deuce","talik","utile","noses","magma","liefs","molue","pheer","youse","firks","foxes","peine","dinos","opahs","bantu","anigh","peers","rebbe","oared","adeem","piked","smeik","forza","guild","merch","noxas","thilk","upsey","miffy","group","monty","dulse","worth","spake","sorbo","aroid","roofs","chute","rasta","nujol","jamun","boffo","musos","duars","hilum","pilis","cozie","pinax","beamy","oboes","stoep","veals","gyved","pelas","muzzy","astir","rangi","pense","purdy","palea","skyer","zonae","grins","aarti","burst","hotel","loafs","mined","kreef","gosht","haick","campi","pamby","ahigh","wider","yesty","odums","aread","isles","caman","motis","axiom","fritz","sized","fytte","blowy","dongs","speal","boing","bunny","thraw","myons","samfi","saver","jerry","story","lezza","thawy","alate","chere","xenic","epris","pokey","shift","baffs","palak","grame","indow","soldi","edify","smote","whups","wager","bunts","abbot","witty","mooch","razee","synch","grime","lasts","riffs","lases","kokum","naras","luffs","twice","human","dadis","spaes","aglet","freit","corey","zorse","jeeps","genic","massy","kyaks","skims","weets","gybes","kerfs","yogas","faxed","tilth","dimer","toted","nashi","score","rouet","zloty","cupro","civvy","afald","weigh","toits","wooer","acher","twonk","vygie","biros","twist","vaute","ungum","spail","urbia","ooids","folia","lulus","gadgy","asity","proso","chape","cants","putts","traga","lawed","smoor","pairs","sewin","rosso","dirls","coits","jaspe","epene","romeo","awdls","artsy","yourt","hauns","gavel","quern","treys","pavas","fleas","mules","bokeh","jagir","rajah","fudgy","zincs","kefir","chack","cluey","blees","valse","maars","glowy","atilt","tilts","twins","deare","snell","ficin","solid","those","boxes","flimp","jells","bruvs","deles","sleer","conga","coypu","bases","deice","flyte","lenis","voter","bales","foist","regma","trady","magus","sling","sposo","eupad","guggl","suids","space","dreks","julep","stops","yechs","tonga","hanap","friar","laved","heist","yeeds","allel","idlis","yampy","blini","solah","aulos","ooyah","apays","hoven","bonny","taluk","rotto","weeks","zaire","vocal","wheal","nummy","sures","ricer","bemas","enorm","stead","loave","eyrir","tumpy","zupas","lweis","syped","owled","cagot","unpeg","erven","bayed","dawgs","feard","inure","tenny","lobed","bouts","relic","ksars","powns","acids","banal","kores","casks","drusy","sodom","begem","nicad","fraud","kumys","globi","afizz","tenue","roots","reeks","aflap","stivy","dirks","adobe","chews","palar","udons","morro","shere","nixie","filch","swoon","kyrie","croze","pelau","ranty","almeh","slipe","hewed","tufts","potro","exist","crusy","plyer","patus","dumbs","tutor","rawer","whips","recap","mamie","zezes","oxeye","tamps","pechs","eyass","mofos","gonys","gummi","toran","beaus","daiko","baler","moops","hirer","colin","massa","masty","filmy","bacca","miter","meaks","kapok","treks","cutto","hours","celom","sooey","pukey","zamis","twaes","towny","dioch","xenon","firni","jaffa","jeeze","outby","lovee","bingo","zoeas","duomo","kalis","equal","obbos","maiko","glyph","chivs","taber","nigre","linux","coyed","bacco","suety","woosh","fores","arnas","downa","levee","scums","sited","labne","leats","tenno","lowne","roils","prese","kolas","mugos","gruff","appui","shews","tawny","flogs","compt","arled","batty","clave","bunks","gyeld","morah","hoots","games","choco","powsy","carse","dooce","arear","bulge","matey","mosto","amias","nirls","hunts","drows","koban","swear","abeer","vaids","mucor","goura","kades","bazoo","oopsy","nurls","scups","xebec","ruddy","oxide","ceils","nurrs","duros","octal","joled","thang","punga","lound","reate","aloin","tress","donna","lands","spelt","crewe","shmek","caper","breer","potto","badge","emong","soras","mynah","zokor","arede","sires","augur","pikul","canst","dyers","goral","lesbo","prill","bosky","minis","bleed","beech","amide","oiler","farts","roshi","murth","goray","trest","mobie","wodge","jotun","doozy","okapi","expat","foule","resew","topek","whows","berry","seyen","rownd","moais","blues","spoke","molie","chugs","silly","thoro","stary","septs","folio","ovary","teuch","dazed","wains","gadis","opepe","bourg","virtu","maaed","tutty","gazar","artic","quips","faffy","yopos","parcs","modus","agbas","galah","tronk","noirs","lanai","serer","gynny","rimed","vitae","renay","ozzie","momus","deems","tanty","kolos","pangs","ethne","hydra","idles","tooth","purls","sijos","hazer","molvi","laude","taboo","kaims","sluit","jural","wormy","bedes","picul","grief","cites","fifed","aksed","regna","gursh","galed","schmo","powie","skate","corky","alapa","jorts","parvo","arsed","pubes","ruchy","carne","eniac","dicto","acedy","aecia","spoon","zones","keeps","awner","tapas","exact","divna","girsh","winge","rucks","rogue","laity","banda","skimo","plebe","fards","taver","quabs","gushy","mused","ganef","boose","gooky","plied","makee","cowed","apeek","ramen","phish","flite","havoc","stond","silty","solum","nadir","elchi","above","shame","actas","swill","mozos","agogo","ladee","rhino","ishes","chyme","orcas","indri","buyin","steem","scala","jalap","denet","memes","brede","clons","geest","tatus","chibs","miler","cooee","sheen","mamas","reads","baboo","sowar","coste","gross","exing","folic","tythe","leads","carer","spues","moire","dwale","speat","jager","mirks","tasto","missa","baghs","monic","flute","decal","gland","sally","haldi","abyes","inros","roule","birdo","tores","liege","while","agros","ruice","laari","maize","goary","jefes","siree","aglee","noils","meeps","chasm","tapen"
+].map(w => w.toUpperCase()).filter(w => w.length === 5);
+
+const ALL_VALID = new Set([...VALID_GUESSES, ...ANSWERS]);
+
+/* ══════════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════════ */
+let answer       = '';
+let currentRow   = 0;
+let currentCol   = 0;
+let currentGuess = [];
+let gameOver     = false;
+let guessedWords = new Set();
+const keyState   = {};
+
+/* ══════════════════════════════════════════════════════════════════
+   DOM
+══════════════════════════════════════════════════════════════════ */
+const gridEl       = document.getElementById('grid');
+const toastCon     = document.getElementById('toast-container');
+const srLive       = document.getElementById('sr-live');
+const mainMenu     = document.getElementById('main-menu');
+const gameScreen   = document.getElementById('game-screen');
+const modalOverlay = document.getElementById('game-over-modal');
+const modalTitle   = document.getElementById('modal-title');
+const modalWord    = document.getElementById('modal-word');
+const btnStart     = document.getElementById('btn-start-game');
+const btnPlayAgain = document.getElementById('btn-play-again');
+
+/* ══════════════════════════════════════════════════════════════════
+   BUILD GRID
+══════════════════════════════════════════════════════════════════ */
+function buildGrid() {
+  gridEl.innerHTML = '';
+  for (let r = 0; r < 6; r++) {
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+    row.setAttribute('role', 'row');
+    row.id = `row-${r}`;
+    for (let c = 0; c < 5; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.setAttribute('role', 'gridcell');
+      tile.setAttribute('aria-label', `Row ${r+1} letter ${c+1}`);
+      tile.id = `tile-${r}-${c}`;
+      tile.appendChild(document.createTextNode(''));
+      row.appendChild(tile);
+    }
+    gridEl.appendChild(row);
+  }
+  setActiveRow(0);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BUILD KEYBOARD
+══════════════════════════════════════════════════════════════════ */
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','⌫']
+];
+
+function buildKeyboard() {
+  KB_ROWS.forEach((row, ri) => {
+    const rowEl = document.getElementById(`kb-row-${ri}`);
+    rowEl.innerHTML = '';
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      if (k === 'ENTER')   btn.classList.add('enter');
+      if (k === '⌫')       btn.classList.add('backspace');
+      btn.textContent = k;
+      btn.setAttribute('aria-label', k === '⌫' ? 'Backspace' : k === 'ENTER' ? 'Enter' : `Letter ${k}`);
+      btn.dataset.key = k;
+      btn.addEventListener('click', () => handleKey(k));
+      rowEl.appendChild(btn);
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   INPUT
+══════════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toUpperCase();
+  if (k === 'ENTER')     handleKey('ENTER');
+  else if (k === 'BACKSPACE') handleKey('⌫');
+  else if (/^[A-Z]$/.test(k)) handleKey(k);
+});
+
+function handleKey(k) {
+  if (gameOver) return;
+  if (k === '⌫') {
+    deleteLetter();
+  } else if (k === 'ENTER') {
+    submitGuess();
+  } else if (/^[A-Z]$/.test(k) && currentCol < 5) {
+    addLetter(k);
+  }
+}
+
+function addLetter(letter) {
+  if (currentCol >= 5) return;
+  currentGuess[currentCol] = letter;
+  const tile = getTile(currentRow, currentCol);
+  tile.textContent = letter;
+  tile.classList.add('filled', 'pop');
+  tile.setAttribute('aria-label', `Row ${currentRow+1} letter ${currentCol+1}: ${letter}`);
+  tile.addEventListener('animationend', () => tile.classList.remove('pop'), { once: true });
+  currentCol++;
+}
+
+function deleteLetter() {
+  if (currentCol <= 0) return;
+  currentCol--;
+  currentGuess[currentCol] = '';
+  const tile = getTile(currentRow, currentCol);
+  tile.textContent = '';
+  tile.classList.remove('filled');
+  tile.setAttribute('aria-label', `Row ${currentRow+1} letter ${currentCol+1}`);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SUBMIT
+══════════════════════════════════════════════════════════════════ */
+function submitGuess() {
+  if (currentCol < 5) {
+    showToast('Not enough letters', 'warn');
+    shakeRow(currentRow);
+    return;
+  }
+
+  const word = currentGuess.join('');
+
+  if (!ALL_VALID.has(word)) {
+    showToast('Not in word list', 'warn');
+    shakeRow(currentRow);
+    return;
+  }
+
+  if (guessedWords.has(word)) {
+    showToast('Already guessed!', 'warn');
+    shakeRow(currentRow);
+    return;
+  }
+
+  guessedWords.add(word);
+  const result = evaluateGuess(word);
+  revealRow(currentRow, word, result, () => {
+    updateKeyboard(word, result);
+
+    if (word === answer) {
+      gameOver = true;
+      const msgs = ['🔥 Nailed it!', '⚡ Brilliant!', '🎯 Spot on!', '🌟 Amazing!', '🏆 Legend!'];
+      setTimeout(() => {
+        showToast(msgs[Math.min(currentRow, msgs.length - 1)], 'win');
+        announce(`Correct! The answer was ${answer}`);
+        launchConfetti();
+        // Trigger Modal
+        setTimeout(() => triggerGameOverModal(true, answer), 1500);
+      }, 400);
+    } else {
+      currentRow++;
+      currentCol = 0;
+      currentGuess = [];
+      if (currentRow >= 6) {
+        gameOver = true;
+        setTimeout(() => {
+          showToast(`The word was ${answer}`, 'loss');
+          announce(`Game over. The answer was ${answer}`);
+          // Trigger Modal
+          setTimeout(() => triggerGameOverModal(false, answer), 1000);
+        }, 400);
+      } else {
+        setActiveRow(currentRow);
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EVALUATE
+══════════════════════════════════════════════════════════════════ */
+function evaluateGuess(word) {
+  const result = Array(5).fill('absent');
+  const ansArr  = answer.split('');
+  const used    = Array(5).fill(false);
+
+  // Correct pass
+  for (let i = 0; i < 5; i++) {
+    if (word[i] === ansArr[i]) {
+      result[i] = 'correct';
+      used[i]   = true;
+    }
+  }
+  // Present pass
+  for (let i = 0; i < 5; i++) {
+    if (result[i] === 'correct') continue;
+    for (let j = 0; j < 5; j++) {
+      if (!used[j] && word[i] === ansArr[j]) {
+        result[i] = 'present';
+        used[j]   = true;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   REVEAL (3D flip with stagger)
+══════════════════════════════════════════════════════════════════ */
+function revealRow(rowIdx, word, result, onDone) {
+  const rowEl = document.getElementById(`row-${rowIdx}`);
+  rowEl.classList.remove('active');
+  const tiles = rowEl.querySelectorAll('.tile');
+  let completed = 0;
+
+  tiles.forEach((tile, i) => {
+    setTimeout(() => {
+      // Start squeeze down
+      tile.classList.add('revealing');
+
+      // At midpoint of squeeze (225ms), swap in the color
+      setTimeout(() => {
+        tile.classList.add(result[i]);
+        tile.setAttribute('aria-label', `${word[i]} — ${result[i]}`);
+      }, 225);
+
+      // After full animation
+      setTimeout(() => {
+        tile.classList.remove('revealing');
+        completed++;
+        if (completed === 5 && onDone) onDone();
+      }, 450);
+
+    }, i * 120);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   KEYBOARD COLOURS
+══════════════════════════════════════════════════════════════════ */
+const STATE_PRIORITY = { correct: 3, present: 2, absent: 1 };
+
+function updateKeyboard(word, result) {
+  for (let i = 0; i < 5; i++) {
+    const letter = word[i];
+    const state  = result[i];
+    if (!keyState[letter] || STATE_PRIORITY[state] > STATE_PRIORITY[keyState[letter]]) {
+      keyState[letter] = state;
+    }
+  }
+  // Only apply 'absent' class to grayed-out keys; leave others at default style
+  document.querySelectorAll('.key').forEach(btn => {
+    const k = btn.dataset.key;
+    if (!k || k.length !== 1) return;
+    btn.classList.remove('absent');
+    if (keyState[k] === 'absent') btn.classList.add('absent');
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════════════════ */
+function getTile(r, c) {
+  return document.getElementById(`tile-${r}-${c}`);
+}
+
+function setActiveRow(r) {
+  document.querySelectorAll('.grid-row').forEach(el => el.classList.remove('active'));
+  const row = document.getElementById(`row-${r}`);
+  if (row) row.classList.add('active');
+}
+
+function shakeRow(r) {
+  const row = document.getElementById(`row-${r}`);
+  row.classList.remove('shake');
+  void row.offsetWidth;
+  row.classList.add('shake');
+  row.addEventListener('animationend', () => row.classList.remove('shake'), { once: true });
+}
+
+/* ── Toast ── */
+function showToast(msg, type = '') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  t.setAttribute('role', 'status');
+  toastCon.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toastOut 0.3s ease forwards';
+    t.addEventListener('animationend', () => t.remove(), { once: true });
+  }, 1800);
+}
+
+/* ── SR announce ── */
+function announce(msg) {
+  srLive.textContent = '';
+  requestAnimationFrame(() => { srLive.textContent = msg; });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCREEN & MODAL FLOW
+══════════════════════════════════════════════════════════════════ */
+function triggerGameOverModal(isWin, correctWord) {
+  modalTitle.textContent = isWin ? 'You Won!' : 'Game Over';
+  modalTitle.className = `modal-title ${isWin ? 'win' : 'loss'}`;
+  modalWord.textContent = correctWord;
+  modalOverlay.classList.add('visible');
+  btnPlayAgain.focus();
+}
+
+btnStart.addEventListener('click', () => {
+  mainMenu.classList.remove('active');
+  gameScreen.classList.add('active');
+  initGame();
+});
+
+btnPlayAgain.addEventListener('click', () => {
+  modalOverlay.classList.remove('visible');
+  
+  // Stop confetti if it's still running
+  confettiParticles = []; 
+  
+  // Quick reset and restart
+  initGame();
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   CONFETTI
+══════════════════════════════════════════════════════════════════ */
+const confettiCanvas  = document.getElementById('confetti-canvas');
+let confettiParticles = [];
+let confettiRaf       = null;
+
+function launchConfetti() {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+  const colors = ['#7ed321','#ff7b00','#00d4ff','#ff4da6','#ffd60a','#fff'];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight * 0.35;
+
+  for (let i = 0; i < 80; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 7;
+    confettiParticles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 7,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 8,
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 14,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.012,
+      isRect: Math.random() > 0.4,
+    });
+  }
+  if (!confettiRaf) animateConfetti();
+}
+
+function animateConfetti() {
+  const ctx = confettiCanvas.getContext('2d');
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParticles = confettiParticles.filter(p => p.life > 0);
+
+  for (const p of confettiParticles) {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.3; p.vx *= 0.98;
+    p.rotation += p.rotSpeed;
+    p.life -= p.decay;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.rotation * Math.PI) / 180);
+    ctx.fillStyle = p.color;
+    if (p.isRect) ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+    else { ctx.beginPath(); ctx.arc(0, 0, p.size/2, 0, Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+
+  if (confettiParticles.length > 0) {
+    confettiRaf = requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRaf = null;
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  }
+}
+
+window.addEventListener('resize', () => {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════════ */
+function pickAnswer() {
+  return ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+}
+
+function initGame() {
+  answer       = pickAnswer();
+  currentRow   = 0;
+  currentCol   = 0;
+  currentGuess = [];
+  gameOver     = false;
+  guessedWords = new Set();
+  Object.keys(keyState).forEach(k => delete keyState[k]);
+  buildGrid();
+  buildKeyboard();
+}
+
+</script>
+</body>
+</html>

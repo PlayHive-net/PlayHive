@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hungryman — PlayHive</title>
+  <style>
+    /* ── PALETTE ─────────────────────────────────────── */
+    :root {
+      --bg:          #0e0a04;
+      --card:        #1a1208;
+      --card-lt:     #221a0c;
+      --surface:     #2e2010;
+      --gold:        #f5a623;
+      --gold-dk:     #c7851c;
+      --gold-glow:   rgba(245,166,35,.16);
+      --gold-border: rgba(245,166,35,.28);
+      --orange:      #ff7b35;
+      --red:         #ff4757;
+      --green:       #2ed573;
+      --sky:         #74b9ff;
+      --cream:       #fef3d8;
+      --warm:        #c4956a;
+      --muted:       #7a5233;
+      --border:      rgba(245,166,35,.1);
+    }
+	
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html { font-size:16px; }
+
+    body {
+      font-family:'Nunito',sans-serif;
+      background:var(--bg);
+      color:var(--cream);
+      height:100dvh; width:100%;
+      overflow:hidden;
+      position:relative;
+    }
+
+    /* ── FLOATING FOOD BG ────────────────────────────── */
+    .float-food {
+      position:fixed;
+      font-size:1.6rem;
+      pointer-events:none;
+      z-index:0;
+      animation: floatFood linear infinite;
+      opacity:0;
+    }
+    @keyframes floatFood {
+      0%   { transform:translateY(105vh) rotate(0deg);   opacity:0; }
+      8%   { opacity:.13; }
+      92%  { opacity:.09; }
+      100% { transform:translateY(-8vh)  rotate(360deg); opacity:0; }
+    }
+
+    /* ── GRAIN ───────────────────────────────────────── */
+    body::after {
+      content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+      background-size:180px 180px; opacity:.4;
+    }
+
+    /* ═══ MENU SCREEN ════════════════════════════════ */
+    #screen-menu {
+      position:absolute; inset:0; z-index:10;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:16px; gap:0;
+      transition:opacity .5s ease, transform .5s ease;
+    }
+    #screen-menu.exit { opacity:0; transform:scale(1.05); pointer-events:none; }
+
+    /* ── Title ── */
+    .menu-title {
+      font-family:'Fredoka One',cursive;
+      font-size:clamp(3.8rem,12vw,7.5rem);
+      line-height:.95; letter-spacing:.05em;
+      text-align:center;
+      filter:drop-shadow(0 0 40px rgba(245,166,35,.3)) drop-shadow(0 6px 24px rgba(0,0,0,.8));
+      animation:titlePop .7s cubic-bezier(.34,1.56,.64,1) both;
+      margin-bottom:6px;
+    }
+    @keyframes titlePop { from{opacity:0;transform:scale(.75) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .menu-title .lt { display:inline-block; cursor:default; transition:transform .18s; }
+    .menu-title .lt:hover { transform:translateY(-10px) rotate(-5deg) scale(1.15); }
+    .lt-0{color:#f5a623} .lt-1{color:#ff7b35} .lt-2{color:#ffd60a}
+    .lt-3{color:#f5a623} .lt-4{color:#ff4757} .lt-5{color:#ff7b35}
+    .lt-6{color:#ffd60a} .lt-7{color:#f5a623} .lt-8{color:#ff7b35}
+
+    /* ── Tagline ── */
+    .menu-tag {
+      font-size:clamp(.78rem,2.2vw,1rem);
+      font-weight:800; color:var(--muted);
+      letter-spacing:.12em; text-transform:uppercase;
+      margin-bottom:20px;
+      animation:fadeUp .6s .3s both;
+    }
+
+    /* ── Stats ── */
+    .menu-stats { display:flex; gap:10px; margin-bottom:20px; animation:fadeUp .6s .4s both; }
+    .ms-chip { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:7px 16px; text-align:center; }
+    .ms-num  { font-family:'Fredoka One',cursive; font-size:1.55rem; color:var(--gold); display:block; line-height:1; }
+    .ms-lbl  { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+
+    /* ── Category picker ── */
+    .menu-cats-label {
+      font-size:.65rem; font-weight:900;
+      text-transform:uppercase; letter-spacing:.18em;
+      color:var(--muted); margin-bottom:9px;
+      animation:fadeUp .6s .5s both;
+    }
+    .menu-cats {
+      display:flex; gap:7px; flex-wrap:wrap; justify-content:center;
+      max-width:70vw; margin-bottom:22px;
+      animation:fadeUp .6s .56s both;
+    }
+    .menu-cat {
+      display:flex; align-items:center; gap:5px;
+      padding:8px 15px; border-radius:100px;
+      border:2px solid var(--border);
+      background:var(--card);
+      font-family:'Fredoka One',cursive; font-size:.86rem;
+      color:var(--warm); cursor:pointer; transition:all .2s;
+      position:relative; overflow:hidden;
+    }
+    .menu-cat::after { content:''; position:absolute; inset:0; background:var(--cc,var(--gold)); opacity:0; transition:opacity .2s; }
+    .menu-cat:hover::after, .menu-cat.selected::after { opacity:.12; }
+    .menu-cat.selected { border-color:var(--cc,var(--gold)); color:var(--cream); box-shadow:0 0 14px -4px var(--cc,var(--gold)); }
+    .menu-cat > * { position:relative; z-index:1; }
+
+    /* ── Play button ── */
+    .btn-play-main {
+      font-family:'Fredoka One',cursive; font-size:1.7rem;
+      letter-spacing:.06em; padding:14px 56px;
+      border-radius:100px; border:none;
+      background:var(--gold); color:#1a0800;
+      cursor:pointer; position:relative; overflow:hidden;
+      box-shadow:0 8px 30px rgba(245,166,35,.35);
+      transition:all .22s;
+      animation:fadeUp .6s .7s both, glowPulse 2.5s 1.2s ease-in-out infinite;
+    }
+    .btn-play-main::before {
+      content:''; position:absolute;
+      top:-50%; left:-60%; width:50%; height:200%;
+      background:rgba(255,255,255,.22); transform:skewX(-20deg);
+      transition:left .4s ease;
+    }
+    .btn-play-main:hover::before { left:160%; }
+    .btn-play-main:hover { background:var(--gold-dk); transform:translateY(-3px) scale(1.04); box-shadow:0 16px 44px rgba(245,166,35,.5); }
+    @keyframes glowPulse {
+      0%,100%{box-shadow:0 0 0 0 rgba(245,166,35,.4),0 8px 30px rgba(245,166,35,.35)}
+      50%    {box-shadow:0 0 0 10px rgba(245,166,35,.07),0 8px 30px rgba(245,166,35,.35)}
+    }
+
+    /* ── How to play link ── */
+    .btn-how {
+      font-family:'Fredoka One',cursive; font-size:.88rem;
+      color:var(--muted); background:none; border:none;
+      cursor:pointer; margin-top:12px;
+      text-decoration:underline dotted; text-underline-offset:4px;
+      transition:color .2s; animation:fadeUp .6s .8s both;
+    }
+    .btn-how:hover { color:var(--warm); }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── HOW TO PLAY MODAL ── */
+    .htp-panel {
+      display:none; position:fixed; inset:0; z-index:200;
+      background:rgba(14,10,4,.93); backdrop-filter:blur(10px);
+      align-items:center; justify-content:center;
+    }
+    .htp-panel.show { display:flex; animation:fadeIn .25s ease; }
+    .htp-box {
+      background:var(--card); border:2px solid var(--gold-border);
+      border-radius:20px; padding:30px; max-width:400px; width:90%;
+      display:flex; flex-direction:column; gap:14px;
+      position:relative;
+      animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+    .htp-title { font-family:'Fredoka One',cursive; font-size:1.9rem; color:var(--gold); }
+    .htp-step  { display:flex; align-items:flex-start; gap:12px; }
+    .htp-num   { font-family:'Fredoka One',cursive; font-size:1.5rem; color:var(--gold); line-height:1; flex-shrink:0; width:28px; }
+    .htp-txt   { font-size:.88rem; font-weight:700; color:var(--warm); line-height:1.55; }
+    .htp-close {
+      position:absolute; top:12px; right:12px;
+      background:rgba(255,255,255,.05); border:1px solid var(--border);
+      border-radius:8px; color:var(--muted); font-size:.78rem; font-weight:800;
+      padding:4px 10px; cursor:pointer; font-family:'Nunito',sans-serif; transition:background .15s;
+    }
+    .htp-close:hover { background:rgba(255,255,255,.1); }
+
+    /* ═══ GAME SCREEN ════════════════════════════════ */
+    #screen-game {
+	  position: absolute; inset: 0; z-index: 10;
+	  display: flex; flex-direction: column; 
+	  align-items: center; 
+	  justify-content: center; /* Add this to center vertically */
+	  padding: 12px 10px 16px; 
+	  overflow-y: auto;
+	  opacity: 0; transform: scale(.97); pointer-events: none;
+	  transition: opacity .45s ease, transform .45s ease;
+	}
+    #screen-game.active { opacity:1; transform:scale(1); pointer-events:auto; }
+
+    .game-header {
+      width:100%; max-width:680px;
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:10px; flex-wrap:wrap; gap:7px;
+    }
+    .g-logo { font-family:'Fredoka One',cursive; font-size:1.55rem; color:var(--gold); }
+    .g-logo span { color:var(--muted); font-size:.9rem; font-family:'Nunito',sans-serif; font-weight:800; }
+    .header-right { display:flex; gap:7px; }
+    .btn-sm {
+      font-family:'Fredoka One',cursive; font-size:.82rem;
+      padding:5px 13px; border-radius:100px;
+      border:2px solid var(--border); background:var(--card);
+      color:var(--warm); cursor:pointer; transition:all .2s;
+    }
+    .btn-sm:hover   { border-color:var(--gold-border); color:var(--gold); background:var(--gold-glow); }
+    .btn-sm.gold    { border-color:var(--gold-border); color:var(--gold); }
+
+    .score-row { display:flex; gap:8px; justify-content:center; width:100%; max-width:680px; margin-bottom:10px; }
+    .score-chip { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px 13px; text-align:center; }
+    .sc-num { font-family:'Fredoka One',cursive; font-size:1.25rem; color:var(--gold); display:block; line-height:1; }
+    .sc-lbl { font-size:.57rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+
+    .cat-strip { display:flex; gap:5px; flex-wrap:wrap; justify-content:center; width:100%; max-width:680px; margin-bottom:10px; }
+    .cat-pill {
+      font-size:.68rem; font-weight:800;
+      padding:3px 10px; border-radius:100px;
+      background:var(--card); border:1px solid var(--border);
+      color:var(--muted); cursor:pointer; transition:all .18s;
+    }
+    .cat-pill:hover  { border-color:var(--gold); color:var(--gold); }
+    .cat-pill.active { background:var(--gold-glow); border-color:var(--gold-border); color:var(--gold); }
+
+    .game-outer { position:relative; width:100%; max-width:680px; }
+    .game-wrap  { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:480px){ .game-wrap{ grid-template-columns:1fr; } }
+
+    /* ── LEFT PANEL ── */
+    .panel-left {
+      background:var(--card); border:2px solid var(--border);
+      border-radius:16px; padding:16px;
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+
+    /* ── SVG CHARACTER ── */
+    .char-wrap { width:100%; max-width:310px; }
+    .char-wrap svg { width:100%; height:auto; overflow:visible; }
+
+    /* Food emoji transition */
+    .food-emoji {
+      transition:opacity .5s ease, transform .5s cubic-bezier(.4,0,.2,1);
+      transform-box:fill-box;
+      transform-origin:center;
+    }
+    .food-emoji.gone {
+      opacity:0;
+      transform:translateY(-20px) scale(.1) rotate(25deg);
+    }
+    /* SVG face transitions */
+    #hm-mouth, #hm-brow-l, #hm-brow-r { transition:d .4s ease; }
+    #hm-eye-l, #hm-eye-r { transition:ry .4s ease; }
+    .tear { transition:opacity .5s ease; }
+
+    /* ── FOOD LIVES ── */
+    .food-lives { display:flex; gap:5px; flex-wrap:wrap; justify-content:center; }
+    .food-life  { font-size:1.2rem; transition:all .35s; }
+    .food-life.eaten { filter:grayscale(1); opacity:.2; transform:scale(.65); }
+
+    .word-cat-tag {
+      font-size:.67rem; font-weight:800;
+      text-transform:uppercase; letter-spacing:.1em;
+      padding:3px 10px; border-radius:100px;
+      background:var(--surface); color:var(--gold);
+      border:1px solid var(--gold-border);
+    }
+    .hint-text { font-size:.7rem; font-weight:700; color:var(--muted); text-align:center; max-width:175px; line-height:1.4; }
+
+    /* ── RIGHT PANEL ── */
+    .panel-right {
+      background:var(--card); border:2px solid var(--border);
+      border-radius:16px; padding:16px;
+      display:flex; flex-direction:column; gap:12px;
+    }
+
+    .word-display { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; min-height:42px; align-items:flex-end; }
+    .letter-slot  { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .letter-char  {
+      font-family:'Fredoka One',cursive; font-size:1.5rem;
+      color:var(--gold); height:28px; line-height:28px;
+      min-width:18px; text-align:center; transition:all .2s;
+    }
+    .letter-char.correct { animation:popLetter .35s cubic-bezier(.34,1.56,.64,1) both; }
+    .letter-char.missed  { color:var(--red); }
+    .letter-char.space   { min-width:12px; }
+    .letter-line { width:100%; height:2px; background:var(--surface); border-radius:2px; min-width:18px; }
+    @keyframes popLetter { from{opacity:0;transform:scale(.4) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    .used-section { display:flex; flex-direction:column; gap:5px; }
+    .used-label { font-size:.62rem; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+    .used-letters { display:flex; flex-wrap:wrap; gap:3px; }
+    .used-tag {
+      font-family:'Fredoka One',cursive; font-size:.85rem;
+      padding:2px 7px; border-radius:5px;
+      background:rgba(255,71,87,.1); color:var(--red);
+      border:1px solid rgba(255,71,87,.2);
+    }
+
+    .keyboard { display:flex; flex-direction:column; gap:3px; }
+    .kb-row   { display:flex; gap:3px; justify-content:center; }
+    .kb-key   {
+      font-family:'Fredoka One',cursive; font-size:.9rem;
+      width:30px; height:32px; border-radius:6px;
+      background:var(--surface); color:var(--cream);
+      border:1.5px solid var(--border); cursor:pointer;
+      transition:all .13s; display:flex; align-items:center; justify-content:center;
+    }
+    .kb-key:hover:not(:disabled) { background:var(--gold-glow); border-color:var(--gold-border); color:var(--gold); transform:translateY(-2px); }
+    .kb-key:disabled { opacity:.22; cursor:not-allowed; background:var(--card); }
+    .kb-key.correct  { background:rgba(46,213,115,.12); border-color:rgba(46,213,115,.35); color:var(--green); opacity:.55; cursor:not-allowed; }
+    .kb-key.wrong    { background:rgba(255,71,87,.1);   border-color:rgba(255,71,87,.25);   color:var(--red);   opacity:.45; cursor:not-allowed; }
+
+    /* ── RESULT OVERLAY ── */
+    .result-overlay {
+      display:none; position:fixed; inset:0; z-index:200;
+      background:rgba(14,10,4,.94); backdrop-filter:blur(8px);
+      border-radius:16px;
+      flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    }
+    .result-overlay.show { display:flex; animation:fadeIn .3s ease; }
+    .res-icon   { font-size:3.2rem; animation:bounceIn .5s .1s both; }
+    .res-title  { font-family:'Fredoka One',cursive; font-size:2.1rem; color:var(--cream); text-align:center; }
+    .res-msg    { font-size:.9rem; font-weight:800; color:var(--warm); text-align:center; max-width:220px; line-height:1.4; }
+    .res-word   { font-family:'Fredoka One',cursive; font-size:1.2rem; color:var(--gold); text-align:center; }
+    .res-word small { display:block; font-family:'Nunito',sans-serif; font-size:.7rem; font-weight:700; color:var(--muted); margin-bottom:2px; }
+    .res-streak { font-size:.82rem; font-weight:800; color:var(--muted); }
+    .res-btns   { display:flex; gap:9px; flex-wrap:wrap; justify-content:center; margin-top:4px; }
+    .btn-again  {
+      font-family:'Fredoka One',cursive; font-size:1.15rem;
+      padding:9px 26px; border-radius:100px;
+      border:none; background:var(--gold); color:#1a0800;
+      cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.28); transition:all .2s;
+    }
+    .btn-again:hover { background:var(--gold-dk); transform:translateY(-2px); }
+    .btn-menu-ret {
+      font-family:'Fredoka One',cursive; font-size:1.15rem;
+      padding:9px 26px; border-radius:100px;
+      border:2px solid var(--border); background:transparent;
+      color:var(--warm); cursor:pointer; transition:all .2s;
+    }
+    .btn-menu-ret:hover { border-color:var(--gold-border); color:var(--gold); }
+
+    @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+    @keyframes bounceIn { from{opacity:0;transform:scale(.3)} 70%{transform:scale(1.2)} to{opacity:1;transform:scale(1)} }
+    @keyframes shake    { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
+	
+	.char-frame {
+	  display: none;
+	  width: 100%;
+	  height: auto;
+	}
+	.char-frame.active {
+	  display: block;
+	}
+	body {
+	  -webkit-user-select: none;
+	  -moz-user-select: none;
+	  -ms-user-select: none;
+	  user-select: none;
+	}
+  </style>
+</head>
+<body>
+
+<!-- ── FLOATING FOOD BACKGROUND ── -->
+<div id="float-foods"></div>
+
+<!-- ════════════ MENU SCREEN ════════════ -->
+<div id="screen-menu">
+  <div class="menu-title" id="menu-title" aria-label="Hungryman"></div>
+  <div class="menu-tag">Guess the word before his food disappears!</div>
+
+  <div class="menu-stats">
+    <div class="ms-chip"><span class="ms-num" id="ms-fed">0</span><span class="ms-lbl">Times Fed</span></div>
+    <div class="ms-chip"><span class="ms-num" id="ms-starved">0</span><span class="ms-lbl">Starved</span></div>
+    <div class="ms-chip"><span class="ms-num" id="ms-best">0</span><span class="ms-lbl">Best Streak</span></div>
+  </div>
+
+  <div class="menu-cats-label">Pick a Category</div>
+  <div class="menu-cats" id="menu-cats"></div>
+
+  <button class="btn-play-main" id="btn-play-main">🍽️ Let's Feed Him!</button>
+  <button class="btn-how"       id="btn-how">How do you play?</button>
+</div>
+
+<!-- ════════════ HOW TO PLAY ════════════ -->
+<div class="htp-panel" id="htp-panel">
+  <div class="htp-box">
+    <button class="htp-close" id="htp-close">✕ Close</button>
+    <div class="htp-title">How To Play 🍕</div>
+    <div class="htp-step"><div class="htp-num">1</div><div class="htp-txt">A secret word is hidden — you see a blank dash for each letter.</div></div>
+    <div class="htp-step"><div class="htp-num">2</div><div class="htp-txt">Tap a letter to guess! If it's in the word, it appears. 🎉</div></div>
+    <div class="htp-step"><div class="htp-num">3</div><div class="htp-txt">A wrong guess makes one of his <strong style="color:var(--gold)">6 foods disappear</strong> — and he gets sadder! 😢</div></div>
+    <div class="htp-step"><div class="htp-num">4</div><div class="htp-txt">Guess the word before all his food is gone, or he'll starve! 😭</div></div>
+    <div class="htp-step"><div class="htp-num">5</div><div class="htp-txt">Use the 💡 hint below if you get stuck — no shame in a clue!</div></div>
+  </div>
+</div>
+
+<!-- ════════════ GAME SCREEN ════════════ -->
+<div id="screen-game">
+  <div class="game-header">
+    <div class="g-logo">🍽️ Hungryman <span id="g-cat-label">Animals</span></div>
+    <div class="header-right">
+      <button class="btn-sm gold" id="btn-new-word">↺ New Word</button>
+      <button class="btn-sm"      id="btn-to-menu">☰ Menu</button>
+    </div>
+  </div>
+
+  <div class="score-row">
+    <div class="score-chip"><span class="sc-num" id="sc-wins">0</span><span class="sc-lbl">Times Fed 🍽</span></div>
+    <div class="score-chip"><span class="sc-num" id="sc-loss">0</span><span class="sc-lbl">Starved 😢</span></div>
+    <div class="score-chip"><span class="sc-num" id="sc-streak">0</span><span class="sc-lbl">Streak 🔥</span></div>
+  </div>
+
+  <div class="cat-strip" id="cat-strip"></div>
+
+  <div class="game-outer">
+    <div class="game-wrap">
+
+      <!-- LEFT: character + food lives -->
+      <div class="panel-left">
+        <div class="char-wrap">
+			<div id="character-images">
+			  <img src="states/state0.png" id="char-img-0" class="char-frame active">
+			  <img src="states/state1.png" id="char-img-1" class="char-frame">
+			  <img src="states/state2.png" id="char-img-2" class="char-frame">
+			  <img src="states/state3.png" id="char-img-3" class="char-frame">
+			  <img src="states/state4.png" id="char-img-4" class="char-frame">
+			  <img src="states/state5.png" id="char-img-5" class="char-frame">
+			  <img src="states/state6.png" id="char-img-6" class="char-frame">
+			</div>
+        </div>
+
+        <!-- Food lives row -->
+        <div class="food-lives" id="food-lives" aria-label="Food remaining"></div>
+
+        <!-- Category + hint -->
+        <div class="word-cat-tag" id="word-cat-tag">—</div>
+        <div class="hint-text"    id="hint-text"></div>
+      </div>
+
+      <!-- RIGHT: word + keyboard -->
+      <div class="panel-right">
+        <div class="word-display"  id="word-display" aria-live="polite"></div>
+        <div class="used-section">
+          <div class="used-label">Wrong Guesses</div>
+          <div class="used-letters" id="used-letters"></div>
+        </div>
+        <div class="keyboard" id="keyboard"></div>
+      </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div class="result-overlay" id="result-overlay">
+      <div class="res-icon"   id="res-icon">🎉</div>
+      <div class="res-title"  id="res-title">He's Full!</div>
+      <div class="res-msg"    id="res-msg"></div>
+      <div class="res-word"   id="res-word"><small>The secret word was</small>—</div>
+      <div class="res-streak" id="res-streak"></div>
+      <div class="res-btns">
+        <button class="btn-again"    id="btn-again">Play Again 🍕</button>
+        <button class="btn-menu-ret" id="btn-menu-ret">Main Menu</button>
+      </div>
+    </div>
+  </div><!-- .game-outer -->
+</div><!-- #screen-game -->
+
+<script>
+/* ═══════════════════════════════════════════
+   WORD BANK
+═══════════════════════════════════════════ */
+const WORD_BANK = {
+  animals:   { label:"Animals",   emoji:"🐾", color:"#ff7b35",
+    words:[
+      {word:"elephant",   hint:"The biggest land animal!"},
+      {word:"giraffe",    hint:"Its neck reaches the treetops!"},
+      {word:"penguin",    hint:"A bird that swims instead of flying!"},
+      {word:"cheetah",    hint:"The fastest animal on land!"},
+      {word:"dolphin",    hint:"A very clever ocean mammal!"},
+      {word:"octopus",    hint:"It has 8 arms and 3 hearts!"},
+      {word:"flamingo",   hint:"A tall pink wading bird!"},
+      {word:"chameleon",  hint:"It can change colour!"},
+      {word:"kangaroo",   hint:"Hops around Australia with a pouch!"},
+      {word:"platypus",   hint:"A mammal that lays eggs!"},
+      {word:"crocodile",  hint:"A big armoured reptile!"},
+      {word:"butterfly",  hint:"It starts life as a caterpillar!"},
+      {word:"hedgehog",   hint:"A spiky little animal that curls into a ball!"},
+      {word:"parrot",     hint:"A colourful bird that can copy your voice!"},
+      {word:"chimpanzee", hint:"Our closest animal relative!"},
+      {word:"jellyfish",  hint:"A wobbly see-through sea creature!"},
+      {word:"porcupine",  hint:"Covered in sharp pointy quills!"},
+      {word:"seahorse",   hint:"The dad carries the babies in a pouch!"},
+      {word:"gorilla",    hint:"The biggest of all the great apes!"},
+      {word:"hamster",    hint:"A tiny furry pet that loves to run in wheels!"},
+      {word:"tortoise",   hint:"A reptile that carries its home on its back!"},
+      {word:"peacock",    hint:"A bird with a magnificent fan of feathers!"},
+      {word:"piranha",    hint:"A tiny fish with very sharp teeth!"},
+      {word:"orangutan",  hint:"A great ape with long orange fur!"},
+      {word:"meerkat",    hint:"A small animal that stands up on its back legs to look out!"},
+      {word:"narwhal",    hint:"The unicorn of the sea with a long spiral horn!"},
+      {word:"armadillo",  hint:"A small animal covered in bony armour plates!"},
+      {word:"bison",      hint:"A massive furry animal that roams the plains!"},
+      {word:"lemur",      hint:"A wide-eyed primate from Madagascar!"},
+      {word:"axolotl",    hint:"A smiling water creature that can regrow its limbs!"},
+      {word:"wolverine",  hint:"A fierce small mammal known for its strength!"},
+      {word:"tapir",      hint:"An animal with a small stretchy snout!"},
+    ]},
+
+  science:   { label:"Science",   emoji:"🔬", color:"#74b9ff",
+    words:[
+      {word:"gravity",        hint:"The force that makes things fall down!"},
+      {word:"molecule",       hint:"The tiny building block of everything!"},
+      {word:"volcano",        hint:"A mountain that spits out hot lava!"},
+      {word:"photosynthesis", hint:"How plants make food from sunlight!"},
+      {word:"eclipse",        hint:"When the moon covers the sun!"},
+      {word:"atmosphere",     hint:"The layer of air around our planet!"},
+      {word:"evaporation",    hint:"When water turns into steam!"},
+      {word:"magnet",         hint:"It attracts iron and steel!"},
+      {word:"skeleton",       hint:"The bony frame inside your body!"},
+      {word:"bacteria",       hint:"Tiny living things too small to see!"},
+      {word:"telescope",      hint:"A tool for looking at faraway stars!"},
+      {word:"fossil",         hint:"An ancient creature turned to stone!"},
+      {word:"microscope",     hint:"A tool that makes tiny things look huge!"},
+      {word:"rainbow",        hint:"Light split into seven beautiful colours!"},
+      {word:"electricity",    hint:"The invisible power that lights up your home!"},
+      {word:"friction",       hint:"The force that slows things down when they rub!"},
+      {word:"oxygen",         hint:"The gas we breathe to stay alive!"},
+      {word:"nucleus",        hint:"The control centre of a cell!"},
+      {word:"erosion",        hint:"When wind or water slowly wears rock away!"},
+      {word:"hibernation",    hint:"When animals sleep through the whole winter!"},
+      {word:"digestion",      hint:"How your body breaks down food!"},
+      {word:"refraction",     hint:"When light bends as it passes through water or glass!"},
+      {word:"camouflage",     hint:"When an animal hides by blending in!"},
+      {word:"migration",      hint:"When animals travel a long way to find warmth!"},
+      {word:"crystal",        hint:"A solid mineral that grows in a repeating pattern!"},
+      {word:"circulation",    hint:"How your heart pumps blood around your body!"},
+      {word:"echo",           hint:"A sound that bounces back to you!"},
+      {word:"buoyancy",       hint:"The force that makes things float in water!"},
+      {word:"pollination",    hint:"How bees help flowers make seeds!"},
+      {word:"germination",    hint:"When a seed starts to sprout and grow!"},
+    ]},
+
+  food:      { label:"Food",      emoji:"🍕", color:"#f5a623",
+    words:[
+      {word:"pizza",       hint:"Round dough with cheese and toppings!"},
+      {word:"avocado",     hint:"A creamy green fruit with a big seed!"},
+      {word:"spaghetti",   hint:"Long thin Italian pasta!"},
+      {word:"broccoli",    hint:"Looks like a tiny little tree!"},
+      {word:"pancake",     hint:"Flat and fluffy — great with syrup!"},
+      {word:"chocolate",   hint:"Sweet treat made from cacao!"},
+      {word:"pineapple",   hint:"A spiky tropical fruit!"},
+      {word:"sandwich",    hint:"Delicious things between two bread slices!"},
+      {word:"strawberry",  hint:"A small red fruit with seeds on the outside!"},
+      {word:"popcorn",     hint:"Kernels that pop when they get hot!"},
+      {word:"mozzarella",  hint:"Super stretchy white cheese!"},
+      {word:"blueberry",   hint:"Tiny, round and dark blue!"},
+      {word:"watermelon",  hint:"A giant green fruit that is red and juicy inside!"},
+      {word:"dumpling",    hint:"A little parcel of dough stuffed with filling!"},
+      {word:"pretzel",     hint:"A twisted salty baked snack!"},
+      {word:"mango",       hint:"A sweet tropical fruit with a big flat seed!"},
+      {word:"noodle",      hint:"A long wiggly strand of pasta!"},
+      {word:"croissant",   hint:"A buttery flaky pastry shaped like a crescent!"},
+      {word:"taco",        hint:"A Mexican folded shell with fillings inside!"},
+      {word:"pumpkin",     hint:"A big orange vegetable used in pies and jack-o-lanterns!"},
+      {word:"sushi",       hint:"Japanese rice rolls wrapped in seaweed!"},
+      {word:"carrot",      hint:"A crunchy orange vegetable loved by rabbits!"},
+      {word:"waffle",      hint:"A crispy grid-shaped breakfast treat!"},
+      {word:"lemon",       hint:"A very sour yellow citrus fruit!"},
+      {word:"burrito",     hint:"A big stuffed wrap folded up tightly!"},
+      {word:"cauliflower", hint:"A white veggie that looks like a cloud!"},
+      {word:"coconut",     hint:"A hairy brown fruit with milk inside!"},
+      {word:"omelette",    hint:"A folded egg dish cooked in a pan!"},
+      {word:"raspberry",   hint:"A tiny red berry that grows on prickly bushes!"},
+      {word:"gingerbread", hint:"A spiced biscuit often shaped like a little person!"},
+    ]},
+
+  geography: { label:"Geography", emoji:"🌍", color:"#a855f7",
+    words:[
+      {word:"amazon",       hint:"The world's biggest rainforest!"},
+      {word:"sahara",       hint:"The world's biggest hot desert!"},
+      {word:"everest",      hint:"The highest mountain on Earth!"},
+      {word:"pacific",      hint:"The largest ocean in the world!"},
+      {word:"antarctica",   hint:"The coldest and iciest place on Earth!"},
+      {word:"tsunami",      hint:"A huge wave caused by an earthquake!"},
+      {word:"glacier",      hint:"A giant slow-moving river of ice!"},
+      {word:"equator",      hint:"An imaginary line around the middle of Earth!"},
+      {word:"canyon",       hint:"A deep valley carved out by a river!"},
+      {word:"archipelago",  hint:"A chain of islands!"},
+      {word:"peninsula",    hint:"Land with water on three sides!"},
+      {word:"mangrove",     hint:"Trees that grow in salty coastal water!"},
+      {word:"continent",    hint:"One of Earth's seven giant landmasses!"},
+      {word:"waterfall",    hint:"A river that drops off a cliff!"},
+      {word:"delta",        hint:"Where a river fans out before meeting the sea!"},
+      {word:"tundra",       hint:"A very cold flat land with no trees!"},
+      {word:"savanna",      hint:"A warm grassy plain where lions roam!"},
+      {word:"plateau",      hint:"A flat-topped hill with steep sides!"},
+      {word:"lagoon",       hint:"A shallow stretch of water separated from the sea!"},
+      {word:"rainforest",   hint:"A thick hot jungle that gets lots of rain!"},
+      {word:"volcano",      hint:"A mountain that can erupt with hot lava!"},
+      {word:"fjord",        hint:"A long narrow sea inlet between tall cliffs!"},
+      {word:"coral",        hint:"A colourful underwater reef made by tiny animals!"},
+      {word:"steppe",       hint:"A huge flat dry grassland in Asia!"},
+      {word:"oasis",        hint:"A patch of green water in the middle of a desert!"},
+      {word:"tributary",    hint:"A smaller river that flows into a bigger one!"},
+      {word:"estuary",      hint:"Where a river mixes with the salty sea!"},
+      {word:"permafrost",   hint:"Ground that stays frozen all year round!"},
+    ]},
+
+  space:     { label:"Space",     emoji:"🚀", color:"#ffd60a",
+    words:[
+      {word:"galaxy",         hint:"Billions and billions of stars together!"},
+      {word:"asteroid",       hint:"A rocky chunk floating in space!"},
+      {word:"supernova",      hint:"A gigantic star explosion!"},
+      {word:"orbit",          hint:"The path a planet takes around the sun!"},
+      {word:"comet",          hint:"An icy space rock with a glowing tail!"},
+      {word:"nebula",         hint:"A beautiful gas cloud where stars are born!"},
+      {word:"satellite",      hint:"An object that orbits a planet!"},
+      {word:"astronaut",      hint:"A brave person who travels to space!"},
+      {word:"constellation",  hint:"A pattern of stars in the night sky!"},
+      {word:"mercury",        hint:"The planet closest to the Sun!"},
+      {word:"jupiter",        hint:"The biggest planet in our solar system!"},
+      {word:"blackhole",      hint:"So powerful that even light can't escape!"},
+      {word:"moonwalk",       hint:"Walking on the surface of the Moon!"},
+      {word:"saturn",         hint:"The planet with beautiful rings around it!"},
+      {word:"meteorite",      hint:"A space rock that lands on Earth!"},
+      {word:"telescope",      hint:"A tool for looking at faraway stars and planets!"},
+      {word:"rocket",         hint:"A powerful machine that blasts into space!"},
+      {word:"eclipse",        hint:"When the Moon blocks out the Sun!"},
+      {word:"solarsystem",    hint:"Our Sun and all the planets around it!"},
+      {word:"uranus",         hint:"The planet that spins on its side!"},
+      {word:"neptune",        hint:"The windiest planet in our solar system!"},
+      {word:"gravity",        hint:"The force that keeps planets in orbit!"},
+      {word:"spacestation",   hint:"A home where astronauts live and work in orbit!"},
+      {word:"lightyear",      hint:"The distance light travels in one whole year!"},
+      {word:"crater",         hint:"A round dent left by a space rock hitting a surface!"},
+      {word:"milkyway",       hint:"The name of the galaxy we live in!"},
+      {word:"launchpad",      hint:"The platform where rockets blast off from!"},
+    ]},
+
+  dinosaurs: { label:"Dinosaurs", emoji:"🦕", color:"#4caf50",
+    words:[
+      {word:"triceratops",     hint:"A dinosaur with three horns on its face!"},
+      {word:"stegosaurus",     hint:"Had big bony plates along its back!"},
+      {word:"velociraptor",    hint:"A clever fast-running feathered dinosaur!"},
+      {word:"brachiosaurus",   hint:"Had an incredibly long neck to reach tall trees!"},
+      {word:"ankylosaurus",    hint:"Covered in tough armour with a club tail!"},
+      {word:"pterodactyl",     hint:"A flying reptile from the age of dinosaurs!"},
+      {word:"spinosaurus",     hint:"Had a huge sail fin on its back!"},
+      {word:"diplodocus",      hint:"One of the longest dinosaurs ever!"},
+      {word:"iguanodon",       hint:"An early dinosaur with a spike on its thumb!"},
+      {word:"allosaurus",      hint:"A big meat-eating dinosaur like T-Rex!"},
+      {word:"parasaurolophus", hint:"Had a long curved crest on its head!"},
+      {word:"fossil",          hint:"What we find to learn about dinosaurs!"},
+      {word:"paleontologist",  hint:"A scientist who digs up and studies dinosaurs!"},
+      {word:"extinction",      hint:"When every last one of a species dies out!"},
+      {word:"herbivore",       hint:"A dinosaur that only ate plants!"},
+      {word:"carnivore",       hint:"A dinosaur that only ate meat!"},
+      {word:"jurassic",        hint:"The period in history when many dinosaurs lived!"},
+      {word:"excavation",      hint:"Carefully digging to uncover buried bones!"},
+    ]},
+
+  sports:    { label:"Sports",    emoji:"⚽", color:"#e91e63",
+    words:[
+      {word:"football",    hint:"You kick a round ball into a big net!"},
+      {word:"swimming",    hint:"Racing through water using your arms and legs!"},
+      {word:"gymnastics",  hint:"Flipping, tumbling and balancing on equipment!"},
+      {word:"basketball",  hint:"You shoot a ball through a hoop up high!"},
+      {word:"volleyball",  hint:"You hit a ball over a tall net!"},
+      {word:"athletics",   hint:"Running, jumping and throwing at a track!"},
+      {word:"tennis",      hint:"You hit a ball back and forth over a net with a racket!"},
+      {word:"skateboard",  hint:"A plank on wheels used for tricks!"},
+      {word:"archery",     hint:"Shooting arrows at a target!"},
+      {word:"badminton",   hint:"Like tennis but you hit a feathery shuttlecock!"},
+      {word:"marathon",    hint:"An incredibly long race of over 40 kilometres!"},
+      {word:"cycling",     hint:"Racing on two wheels as fast as you can!"},
+      {word:"wrestling",   hint:"Two people try to pin each other to the ground!"},
+      {word:"surfing",     hint:"Riding on top of giant ocean waves!"},
+      {word:"fencing",     hint:"A sport where you duel with a long thin sword!"},
+      {word:"triathlon",   hint:"A race combining swimming, cycling and running!"},
+      {word:"bobsled",     hint:"A team slides down an icy track in a tiny sled!"},
+      {word:"snowboard",   hint:"Sliding down a snowy mountain on one wide board!"},
+    ]},
+
+  music:     { label:"Music",     emoji:"🎵", color:"#00bcd4",
+    words:[
+      {word:"guitar",      hint:"A stringed instrument you strum or pluck!"},
+      {word:"trumpet",     hint:"A shiny brass instrument you blow into!"},
+      {word:"violin",      hint:"A small stringed instrument played with a bow!"},
+      {word:"xylophone",   hint:"You hit colourful bars to make different notes!"},
+      {word:"saxophone",   hint:"A curvy brass instrument with lots of keys!"},
+      {word:"piano",       hint:"A big keyboard instrument with black and white keys!"},
+      {word:"drumkit",     hint:"A set of drums and cymbals you hit with sticks!"},
+      {word:"accordion",   hint:"You squeeze it in and out to make music!"},
+      {word:"ukulele",     hint:"A tiny four-stringed guitar from Hawaii!"},
+      {word:"flute",       hint:"A thin tube you blow across to make music!"},
+      {word:"trombone",    hint:"A brass instrument with a sliding tube!"},
+      {word:"cello",       hint:"A big violin you rest on the floor to play!"},
+      {word:"harmonica",   hint:"A tiny instrument you blow in and out!"},
+      {word:"banjo",       hint:"A twangy stringed instrument popular in folk music!"},
+      {word:"conductor",   hint:"The person who leads an orchestra with a baton!"},
+      {word:"rhythm",      hint:"The steady beat you feel in music!"},
+      {word:"melody",      hint:"The main tune you hum along to!"},
+      {word:"orchestra",   hint:"A huge group of musicians playing together!"},
+    ]},
+
+  transport: { label:"Transport", emoji:"🚂", color:"#ff5722",
+    words:[
+      {word:"submarine",   hint:"A vehicle that travels underwater!"},
+      {word:"helicopter",  hint:"It flies using spinning blades on top!"},
+      {word:"locomotive",  hint:"The powerful engine that pulls a train!"},
+      {word:"hovercraft",  hint:"It glides over water on a cushion of air!"},
+      {word:"ambulance",   hint:"A vehicle that rushes sick people to hospital!"},
+      {word:"cable car",   hint:"A box that travels up mountains on a wire!"},
+      {word:"ferry",       hint:"A big boat that carries cars and people across water!"},
+      {word:"spacecraft",  hint:"A vehicle that travels out into space!"},
+      {word:"catamaran",   hint:"A fast boat with two hulls side by side!"},
+      {word:"gondola",     hint:"A long narrow boat steered with a pole in Venice!"},
+      {word:"snowmobile",  hint:"A vehicle with skis and a track for snowy ground!"},
+      {word:"tractor",     hint:"A big powerful farm vehicle!"},
+      {word:"monorail",    hint:"A train that runs on a single rail track!"},
+      {word:"blimp",       hint:"A giant floating balloon aircraft!"},
+      {word:"rickshaw",    hint:"A small cart pulled by a person or bicycle!"},
+      {word:"kayak",       hint:"A small narrow boat you paddle yourself!"},
+      {word:"zeppelin",    hint:"A huge cigar-shaped airship!"},
+      {word:"tugboat",     hint:"A small powerful boat that pushes big ships!"},
+    ]},
+
+  history:   { label:"History",   emoji:"🏛️", color:"#795548",
+    words:[
+      {word:"pyramid",      hint:"A giant triangle-shaped tomb built in ancient Egypt!"},
+      {word:"pharaoh",      hint:"A ruler of ancient Egypt!"},
+      {word:"gladiator",    hint:"A warrior who fought in a Roman arena!"},
+      {word:"knight",       hint:"An armoured warrior who rode a horse!"},
+      {word:"viking",       hint:"A fierce Norse explorer who sailed longships!"},
+      {word:"samurai",      hint:"A noble Japanese warrior with a sword!"},
+      {word:"colosseum",    hint:"A giant ancient Roman arena for battles!"},
+      {word:"catapult",     hint:"An ancient weapon that launched big rocks!"},
+      {word:"castle",       hint:"A big stone fort where kings and queens lived!"},
+      {word:"mummy",        hint:"A preserved ancient Egyptian body wrapped in bandages!"},
+      {word:"hieroglyphics",hint:"Ancient Egyptian picture writing!"},
+      {word:"revolution",   hint:"When people rise up to change their government!"},
+      {word:"emperor",      hint:"The most powerful ruler of a huge empire!"},
+      {word:"artifact",     hint:"An old object that tells us about the past!"},
+      {word:"chariot",      hint:"A two-wheeled cart pulled by horses in ancient times!"},
+      {word:"scroll",       hint:"An old document rolled up like a tube!"},
+      {word:"medieval",     hint:"The time period of castles and knights in Europe!"},
+      {word:"archaeologist",hint:"A scientist who digs up ancient objects and ruins!"},
+    ]},
+};
+
+/* ═══════════════════════════════════════════
+   FACE EXPRESSIONS  (0 = happy → 6 = devastated)
+═══════════════════════════════════════════ */
+const FACES = [
+  // 0 wrong — Big happy smile 😄
+  { mouth:"M82,72 Q100,86 118,72", browL:"M80,44 Q88,38 96,43",  browR:"M104,43 Q112,38 120,44",
+    eyeRY:7.5, tearL1:0, tearL2:0, tearR1:0, tearR2:0, sweat:0, cheek:.35 },
+  // 1 wrong — Slight worry 🙂
+  { mouth:"M84,76 Q100,70 116,72", browL:"M80,44 Q88,39 96,43",  browR:"M104,43 Q112,39 120,44",
+    eyeRY:7, tearL1:0, tearL2:0, tearR1:0, tearR2:0, sweat:0, cheek:.22 },
+  // 2 wrong — Hmm 😐
+  { mouth:"M86,73 Q100,73 114,73", browL:"M80,45 Q88,41 96,45",  browR:"M104,45 Q112,41 120,45",
+    eyeRY:6.5, tearL1:0, tearL2:0, tearR1:0, tearR2:0, sweat:0, cheek:.1 },
+  // 3 wrong — Sad 😕
+  { mouth:"M86,75 Q100,66 114,75", browL:"M80,46 Q88,43 96,47",  browR:"M104,47 Q112,43 120,46",
+    eyeRY:6, tearL1:0, tearL2:0, tearR1:0, tearR2:0, sweat:0, cheek:0 },
+  // 4 wrong — Teary 😢
+  { mouth:"M85,77 Q100,65 115,77", browL:"M80,47 Q88,44 96,48",  browR:"M104,48 Q112,44 120,47",
+    eyeRY:5.5, tearL1:.7, tearL2:.4, tearR1:.7, tearR2:.4, sweat:0, cheek:0 },
+  // 5 wrong — Sobbing 😭
+  { mouth:"M84,79 Q100,64 116,79", browL:"M80,48 Q88,45 96,49",  browR:"M104,49 Q112,45 120,48",
+    eyeRY:4.5, tearL1:1, tearL2:.8, tearR1:1, tearR2:.8, sweat:.7, cheek:0 },
+  // 6 wrong — Devastated 😩
+  { mouth:"M82,82 Q100,70 118,82", browL:"M80,40 Q88,45 96,52",  browR:"M104,52 Q112,45 120,40",
+    eyeRY:3.5, tearL1:0, tearL1:0, tearL2:0, tearR1:0, tearR2:0, sweat:0, cheek:0 },
+];
+
+const FOOD_ITEMS = ['🍕','🍔','🌮','🍟','🍩','🍪'];
+const KB_ROWS    = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+const MAX_WRONG  = 6;
+
+/* ─── STATE ─── */
+let word="", hint="", guessed=new Set(), wrong=0;
+let wins=0, losses=0, streak=0, best=0;
+let cat="food", usedWords={};
+
+/* ─── PERSIST ─── */
+function loadStats(){
+  try{const s=JSON.parse(localStorage.getItem("hm2-stats")||"{}");wins=s.w||0;losses=s.l||0;streak=s.s||0;best=s.b||0;}catch(e){}
+}
+function saveStats(){
+  try{localStorage.setItem("hm2-stats",JSON.stringify({w:wins,l:losses,s:streak,b:best}));}catch(e){}
+}
+
+/* ─── FLOATING FOOD BG ─── */
+(function(){
+  const foods=['🍕','🍔','🌮','🍟','🍩','🍪','🍰','🍦','🍇','🍓','🌽','🥕'];
+  const wrap=document.getElementById("float-foods");
+  for(let i=0;i<14;i++){
+    const el=document.createElement("div");
+    el.className="float-food";
+    el.textContent=foods[i%foods.length];
+    el.style.left=Math.random()*100+"%";
+    el.style.animationDuration=(18+Math.random()*16)+"s";
+    el.style.animationDelay=(-Math.random()*20)+"s";
+    el.style.fontSize=(1.1+Math.random()*1.2)+"rem";
+    wrap.appendChild(el);
+  }
+})();
+
+/* ─── BUILD MENU TITLE ─── */
+function buildTitle(){
+  const t=document.getElementById("menu-title");
+  t.innerHTML="HUNGRYMAN".split("").map((c,i)=>`<span class="lt lt-${i}">${c}</span>`).join("");
+}
+
+/* ─── MENU CATEGORY CARDS ─── */
+function buildMenuCats(){
+  const w=document.getElementById("menu-cats"); w.innerHTML="";
+  Object.entries(WORD_BANK).forEach(([k,d])=>{
+    const b=document.createElement("button");
+    b.className="menu-cat"+(k===cat?" selected":"");
+    b.style.setProperty("--cc",d.color);
+    b.innerHTML=`<span>${d.emoji}</span><span>${d.label}</span>`;
+    b.addEventListener("click",()=>{
+      cat=k;
+      w.querySelectorAll(".menu-cat").forEach(x=>x.classList.remove("selected"));
+      b.classList.add("selected");
+    });
+    w.appendChild(b);
+  });
+}
+
+/* ─── SCREEN TRANSITIONS ─── */
+function showMenu(){
+  const m=document.getElementById("screen-menu");
+  const g=document.getElementById("screen-game");
+  m.classList.remove("exit"); m.style.display="flex";
+  g.classList.remove("active");
+  document.getElementById("ms-fed").textContent=wins;
+  document.getElementById("ms-starved").textContent=losses;
+  document.getElementById("ms-best").textContent=best;
+}
+function showGame(){
+  const m=document.getElementById("screen-menu");
+  const g=document.getElementById("screen-game");
+  m.classList.add("exit");
+  setTimeout(()=>m.style.display="none",500);
+  g.classList.add("active");
+}
+
+/* ─── IN-GAME CAT STRIP ─── */
+function buildCatStrip(){
+  const w=document.getElementById("cat-strip"); w.innerHTML="";
+  Object.entries(WORD_BANK).forEach(([k,d])=>{
+    const b=document.createElement("button");
+    b.className="cat-pill"+(k===cat?" active":"");
+    b.textContent=d.emoji+" "+d.label;
+    b.addEventListener("click",()=>{
+      cat=k;
+      w.querySelectorAll(".cat-pill").forEach(p=>p.classList.remove("active"));
+      b.classList.add("active");
+      document.getElementById("g-cat-label").textContent=d.label;
+      startGame();
+    });
+    w.appendChild(b);
+  });
+}
+
+/* ─── KEYBOARD ─── */
+function buildKeyboard(){
+  const kb=document.getElementById("keyboard"); kb.innerHTML="";
+  KB_ROWS.forEach(row=>{
+    const r=document.createElement("div"); r.className="kb-row";
+    [...row].forEach(l=>{
+      const b=document.createElement("button");
+      b.className="kb-key"; b.textContent=l; b.id="key-"+l;
+      b.setAttribute("aria-label","Guess letter "+l);
+      b.addEventListener("click",()=>guess(l));
+      r.appendChild(b);
+    });
+    kb.appendChild(r);
+  });
+}
+
+/* ─── PICK WORD ─── */
+function pickWord(){
+  const d=WORD_BANK[cat];
+  if(!usedWords[cat]) usedWords[cat]=new Set();
+  let av=d.words.filter(w=>!usedWords[cat].has(w.word));
+  if(!av.length){ usedWords[cat].clear(); av=d.words; }
+  const p=av[Math.floor(Math.random()*av.length)];
+  usedWords[cat].add(p.word);
+  return p;
+}
+
+/* ─── START GAME ─── */
+function startGame(){
+  const p=pickWord();
+  word=p.word.toUpperCase(); hint=p.hint;
+  guessed=new Set(); wrong=0;
+  renderCharacter();
+  renderFoodLives();
+  renderWord();
+  renderUsed();
+  resetKeys();
+  hideResult();
+  document.getElementById("word-cat-tag").textContent=WORD_BANK[cat].emoji+" "+WORD_BANK[cat].label;
+  document.getElementById("hint-text").textContent="💡 "+hint;
+}
+
+/* ─── RENDER CHARACTER (face + food) ─── */
+function applyFace(n){
+  const f=FACES[Math.min(n, FACES.length-1)];
+  document.getElementById("hm-mouth").setAttribute("d",        f.mouth);
+  document.getElementById("hm-brow-l").setAttribute("d",       f.browL);
+  document.getElementById("hm-brow-r").setAttribute("d",       f.browR);
+  document.getElementById("hm-eye-l").setAttribute("ry",       f.eyeRY);
+  document.getElementById("hm-eye-r").setAttribute("ry",       f.eyeRY);
+  document.getElementById("hm-pupil-l").setAttribute("cy",     57+(7.5-f.eyeRY)*.3);
+  document.getElementById("hm-pupil-r").setAttribute("cy",     57+(7.5-f.eyeRY)*.3);
+  document.getElementById("tear-l1").setAttribute("opacity",   f.tearL1);
+  document.getElementById("tear-l2").setAttribute("opacity",   f.tearL2);
+  document.getElementById("tear-r1").setAttribute("opacity",   f.tearR1);
+  document.getElementById("tear-r2").setAttribute("opacity",   f.tearR2);
+  document.getElementById("sweat-1").setAttribute("opacity",   f.sweat);
+  document.getElementById("hm-cheek-l").setAttribute("opacity",f.cheek);
+  document.getElementById("hm-cheek-r").setAttribute("opacity",f.cheek);
+}
+function renderCharacter() {
+  // 1. Hide all images and remove the active class
+  document.querySelectorAll('.char-frame').forEach(img => img.classList.remove('active'));
+  
+  // 2. Show the specific image corresponding to the 'wrong' count
+  const currentImg = document.getElementById(`char-img-${wrong}`);
+  if (currentImg) currentImg.classList.add('active');
+}
+
+/* ─── RENDER FOOD LIVES ─── */
+function renderFoodLives(){
+  const w=document.getElementById("food-lives"); w.innerHTML="";
+  FOOD_ITEMS.forEach((f,i)=>{
+    const s=document.createElement("span");
+    s.className="food-life"+(i<wrong?" eaten":"");
+    s.setAttribute("aria-label", i<wrong ? "Food gone" : "Food remaining");
+    s.textContent=f;
+    w.appendChild(s);
+  });
+}
+
+/* ─── RENDER WORD ─── */
+function renderWord(){
+  const d=document.getElementById("word-display"); d.innerHTML="";
+  [...word].forEach(c=>{
+    const slot=document.createElement("div"); slot.className="letter-slot";
+    const ch=document.createElement("div");
+    const ln=document.createElement("div"); ln.className="letter-line";
+    if(c===" "){ ch.className="letter-char space"; ln.style.visibility="hidden"; }
+    else if(guessed.has(c)){ ch.className="letter-char correct"; ch.textContent=c; }
+    else if(wrong>=MAX_WRONG){ ch.className="letter-char missed"; ch.textContent=c; }
+    else{ ch.className="letter-char"; }
+    slot.appendChild(ch); slot.appendChild(ln); d.appendChild(slot);
+  });
+}
+
+/* ─── RENDER WRONG GUESSES ─── */
+function renderUsed(){
+  const w=document.getElementById("used-letters"); w.innerHTML="";
+  [...guessed].filter(c=>!word.includes(c)).forEach(c=>{
+    const t=document.createElement("span"); t.className="used-tag"; t.textContent=c;
+    w.appendChild(t);
+  });
+}
+
+function resetKeys(){
+  document.querySelectorAll(".kb-key").forEach(b=>{
+    b.disabled=false; b.classList.remove("correct","wrong");
+  });
+}
+
+/* ─── UPDATE SCORE ─── */
+function updateScore(){
+  document.getElementById("sc-wins").textContent=wins;
+  document.getElementById("sc-loss").textContent=losses;
+  document.getElementById("sc-streak").textContent=streak;
+  if(streak>best) best=streak;
+  saveStats();
+}
+
+/* ─── SHAKE CHARACTER ─── */
+function shakeChar(){
+  const el=document.querySelector(".char-wrap");
+  el.style.animation="none"; void el.offsetHeight;
+  el.style.animation="shake .4s ease";
+  setTimeout(()=>el.style.animation="",400);
+}
+
+/* ─── GUESS ─── */
+function guess(l){
+  if(guessed.has(l)||wrong>=MAX_WRONG) return;
+  guessed.add(l);
+  const btn=document.getElementById("key-"+l);
+  if(word.includes(l)){
+    btn.classList.add("correct");
+    renderWord();
+    if([...word].every(c=>c===" "||guessed.has(c))){
+      wins++; streak++; updateScore(); setTimeout(showWin,400);
+    }
+  } else {
+    wrong++;
+    btn.classList.add("wrong");
+    renderCharacter();
+    renderFoodLives();
+    renderUsed();
+    shakeChar();
+    if(wrong>=MAX_WRONG){
+      losses++; streak=0; updateScore();
+      renderWord(); // reveal
+      setTimeout(showLoss,500);
+    }
+  }
+  btn.disabled=true;
+}
+
+/* ─── WIN/LOSS OVERLAYS ─── */
+const WIN_TITLES = ["Yummy! He's Full!","Hooray! He Ate!","Amazing! Fed Him!","Wonderful! Dinner!","Brilliant! Well Fed!"];
+const WIN_MSGS   = ["Great guessing — his belly is happy! 🎉","You saved his dinner! He's so grateful! 😋","Not a single crumb wasted! 🍽️","He's doing a happy food dance! 💃","He says: THANK YOU! That was delicious! 😄"];
+const LOSS_MSGS  = ["Oh no… all his food disappeared! He's so sad and hungry! 😭","Poor guy — his plate is empty! He'll go to bed hungry tonight! 😢","All gone! He's holding his empty tummy and crying… 😥","He waited so long for his meal and now it's gone! 😭","Don't worry, we'll try again — he's hungry but hopeful! 🥺"];
+
+function showWin(){
+  const i=Math.floor(Math.random()*WIN_TITLES.length);
+  document.getElementById("res-icon").textContent=["🎉","🍽️","😋","🎊","⭐"][Math.floor(Math.random()*5)];
+  document.getElementById("res-title").textContent=WIN_TITLES[i];
+  document.getElementById("res-msg").textContent=WIN_MSGS[i];
+  document.getElementById("res-word").innerHTML=`<small>The secret word was</small>${word}`;
+  document.getElementById("res-streak").textContent= streak>1 ? `🔥 ${streak} in a row!` : "";
+  document.getElementById("result-overlay").classList.add("show");
+}
+function showLoss(){
+  document.getElementById("res-icon").textContent="😭";
+  document.getElementById("res-title").textContent="Oh No! He Starved!";
+  document.getElementById("res-msg").textContent=LOSS_MSGS[Math.floor(Math.random()*LOSS_MSGS.length)];
+  document.getElementById("res-word").innerHTML=`<small>The secret word was</small>${word}`;
+  document.getElementById("res-streak").textContent="";
+  document.getElementById("result-overlay").classList.add("show");
+}
+function hideResult(){ document.getElementById("result-overlay").classList.remove("show"); }
+
+/* ─── EVENTS ─── */
+document.getElementById("btn-play-main").addEventListener("click",()=>{
+  buildCatStrip(); buildKeyboard();
+  document.getElementById("g-cat-label").textContent=WORD_BANK[cat].label;
+  showGame(); startGame();
+});
+document.getElementById("btn-new-word").addEventListener("click",startGame);
+document.getElementById("btn-to-menu").addEventListener("click",()=>{ hideResult(); showMenu(); });
+document.getElementById("btn-again").addEventListener("click",()=>{ hideResult(); startGame(); });
+document.getElementById("btn-menu-ret").addEventListener("click",()=>{ hideResult(); showMenu(); });
+document.getElementById("btn-how").addEventListener("click",()=>document.getElementById("htp-panel").classList.add("show"));
+document.getElementById("htp-close").addEventListener("click",()=>document.getElementById("htp-panel").classList.remove("show"));
+document.getElementById("htp-panel").addEventListener("click",e=>{
+  if(e.target===document.getElementById("htp-panel")) document.getElementById("htp-panel").classList.remove("show");
+});
+
+document.addEventListener("keydown",e=>{
+  if(!document.getElementById("screen-game").classList.contains("active")) return;
+  const k=e.key.toUpperCase();
+  if(/^[A-Z]$/.test(k)&&!guessed.has(k)&&wrong<MAX_WRONG) guess(k);
+});
+
+/* inject shake keyframe */
+const sty=document.createElement("style");
+sty.textContent=`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}`;
+document.head.appendChild(sty);
+
+/* ─── BOOT ─── */
+loadStats();
+buildTitle();
+buildMenuCats();
+showMenu();
+</script>
+</body>
+</html>

@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pattern Match — PlayHive</title>
+  <style>
+    :root {
+      --navy:        #0d1b2a;
+      --navy-mid:    #132338;
+      --navy-card:   #1a2f47;
+      --navy-light:  #1f3a57;
+      --lime:        #7ed321;
+      --lime-dark:   #5fab00;
+      --lime-glow:   rgba(126,211,33,0.18);
+      --orange:      #ff7b00;
+      --orange-dark: #e06900;
+      --orange-glow: rgba(255,123,0,0.18);
+      --cyan:        #00d4ff;
+      --cyan-glow:   rgba(0,212,255,0.18);
+      --pink:        #ff4da6;
+      --pink-glow:   rgba(255,77,166,0.18);
+      --text:        #e8f1fa;
+      --text-dim:    #7a99bb;
+      --text-dark:   #3d5a75;
+      --border:      rgba(255,255,255,0.08);
+      --border-lime: rgba(126,211,33,0.3);
+      --radius:      10px;
+      --radius-lg:   16px;
+      
+      /* Pattern Pad Base Colors */
+      --pad-0-base:  #185212; /* Green */
+      --pad-0-lit:   #7ed321;
+      --pad-1-base:  #6b153b; /* Red/Pink */
+      --pad-1-lit:   #ff4da6;
+      --pad-2-base:  #0a4759; /* Blue */
+      --pad-2-lit:   #00d4ff;
+      --pad-3-base:  #783a00; /* Orange */
+      --pad-3-lit:   #ff7b00;
+      --pad-4-base:  #6e5f00; /* Yellow */
+      --pad-4-lit:   #ffd60a;
+      --pad-5-base:  #49116e; /* Purple */
+      --pad-5-lit:   #b5179e;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Hard lock — no scroll ever */
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      touch-action: none; /* Prevent pinch zoom & scroll */
+    }
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
+    @keyframes fadeUp    { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 var(--lime-glow)} 50%{box-shadow:0 0 20px 8px var(--lime-glow)} }
+    @keyframes winBounce { 0%{transform:scale(1)} 30%{transform:scale(1.06) rotate(-1deg)} 60%{transform:scale(1.02) rotate(.5deg)} 100%{transform:scale(1)} }
+    @keyframes float     { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-10px) rotate(3deg)} }
+    @keyframes shake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+    /* ════════════════════════════════
+       SCREENS
+    ════════════════════════════════ */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .screen.hidden { display: none; }
+
+    /* ════════════════════════════════
+       MAIN MENU (REDESIGNED)
+    ════════════════════════════════ */
+    #menu { animation: fadeIn .35s ease; padding: 16px 20px; text-align: center; }
+
+    .menu-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+    .msym {
+      position: absolute; opacity: .055;
+      animation: float 7s ease-in-out infinite; user-select: none;
+      font-size: clamp(2rem, 5vw, 4.5rem);
+    }
+
+    .menu-content {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center;
+      width: 100%; max-width: 400px; /* Slimmer for vertical layout */
+      height: 100%; max-height: 100vh;
+      padding: 16px 0; justify-content: center;
+      gap: clamp(20px, 4vh, 32px);
+    }
+
+    .menu-header {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .menu-icon {
+      font-size: min(15vh, 6rem);
+      animation: float 4s ease-in-out infinite;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+    .menu-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: min(6vh, 3.2rem);
+      color: #fff; letter-spacing: .03em; line-height: 1;
+    }
+    .menu-title em { 
+      font-style: normal; color: var(--cyan); 
+      text-shadow: 0 0 16px rgba(0,212,255,0.4);
+    }
+    .menu-sub {
+      font-size: min(2vh, .95rem);
+      color: var(--text-dim); font-weight: 700;
+    }
+
+    .diff-cards {
+      display: flex; flex-direction: column; gap: 12px;
+      width: 100%;
+    }
+    
+    .diff-card {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%;
+      background: var(--navy-card);
+      border: 2px solid var(--border);
+      border-radius: 100px; /* Pill shape */
+      padding: 14px 24px;
+      cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
+      animation: fadeUp .45s ease both;
+    }
+    .diff-card:nth-child(1){animation-delay:.08s}
+    .diff-card:nth-child(2){animation-delay:.15s}
+    .diff-card:nth-child(3){animation-delay:.22s}
+    
+    .diff-card:hover { 
+      transform: translateY(-3px); 
+      border-color: var(--cc,var(--lime)); 
+      box-shadow: 0 8px 20px rgba(0,0,0,.3); 
+    }
+    .diff-card.selected { 
+      background: var(--cc-glow); 
+      border-color: var(--cc); 
+      transform: scale(1.03);
+      box-shadow: 0 0 16px var(--cc-glow);
+    }
+    
+    .dc-left { display: flex; align-items: center; gap: 16px; }
+    .dc-icon { font-size: 2rem; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+    .dc-info { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .dc-name { font-family:'Fredoka One',cursive; font-size: 1.25rem; color:#fff; line-height: 1;}
+    .dc-desc { font-size: 0.8rem; font-weight:700; color:var(--text-dim); }
+    .dc-lives { font-size: 0.9rem; font-weight:800; color: var(--cc); background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 100px; }
+
+    .play-btn {
+      width: 100%;
+      font-family: 'Fredoka One', cursive;
+      font-size: min(2.8vh, 1.3rem); letter-spacing: .05em;
+      padding: 18px 24px;
+      border-radius: 100px;
+      background: var(--lime); color: var(--navy); border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 22px rgba(126,211,33,.4);
+      transition: all .2s;
+      animation: pulseGlow 2.5s ease-in-out infinite, fadeUp .45s ease .3s both;
+    }
+    .play-btn:hover { background:var(--lime-dark); transform:translateY(-2px); }
+    .play-btn:active{ transform:translateY(0); }
+
+    /* ════════════════════════════════
+       GAME VIEW
+    ════════════════════════════════ */
+    #game {
+      justify-content: flex-start;
+      padding: clamp(6px,1.5vh,12px) clamp(8px,2vw,16px) clamp(6px,1.5vh,12px);
+      gap: clamp(5px,1.2vh,10px);
+    }
+
+    #topbar {
+      width: 100%; max-width: 640px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stat-chip {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--navy-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: clamp(3px,0.8vh,6px) clamp(8px,1.5vw,12px);
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(.78rem,2vh,1rem);
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .stat-chip .val        { color: var(--lime); }
+    .stat-chip .val.orange { color: var(--orange); }
+    .stat-chip .val.pink   { color: var(--pink); }
+    
+    #status-chip {
+      flex: 1; justify-content: center;
+      color: var(--cyan); border-color: rgba(0,212,255,0.2);
+      transition: all 0.3s ease;
+    }
+    #status-chip.player-turn {
+      color: var(--lime); border-color: var(--border-lime); background: var(--lime-glow);
+    }
+
+    .back-btn {
+      flex-shrink: 0;
+      background: var(--navy-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      color: var(--text-dim);
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(.72rem,1.8vh,.86rem); letter-spacing: .04em;
+      padding: clamp(3px,0.8vh,6px) clamp(10px,2vw,14px);
+      cursor: pointer; transition: all .18s;
+    }
+    .back-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+    /* progress track used to show player's turn progress */
+    #progress-track {
+      width: 100%; max-width: 640px; flex-shrink: 0;
+      height: 4px;
+      background: var(--navy-card);
+      border-radius: 100px; overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--lime-dark), var(--lime), var(--cyan));
+      border-radius: 100px;
+      transition: width .2s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+    }
+
+    /* Board constraints */
+    #grid-wrap {
+      width: 100%; max-width: 640px;
+      flex: 1; min-height: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    
+    /* Pattern Board */
+    #Pattern-board {
+      display: grid;
+      gap: clamp(10px, 2.5vw, 20px);
+      width: 100%;
+      aspect-ratio: 1; /* Default to square, dynamically updated by JS */
+      max-height: 100%;
+      padding: 10px;
+      border-radius: var(--radius-lg);
+      transition: transform 0.3s;
+    }
+    
+    #Pattern-board.shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
+    .Pattern-pad {
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      border: 4px solid rgba(0,0,0,0.3);
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.2);
+      transition: all 0.1s ease;
+      opacity: 0.8;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .Pattern-pad::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .Pattern-pad.active {
+      opacity: 1;
+      transform: scale(0.98) translateY(2px);
+      border-color: rgba(255,255,255,0.4);
+    }
+    
+    /* Disable interaction during computer's turn */
+    body.computer-turn .Pattern-pad {
+      pointer-events: none;
+      cursor: default;
+    }
+
+    /* Assigning colors via CSS vars injected in JS */
+    .Pattern-pad { background: var(--bg-base); }
+    .Pattern-pad.active {
+      background: var(--bg-lit);
+      box-shadow: 0 0 30px 10px var(--bg-glow), inset 0 0 20px rgba(255,255,255,0.3);
+    }
+
+    /* ── OVERLAY ── */
+    #overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,.84);
+      backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #overlay.show { display: flex; }
+    #win-box {
+      background: var(--navy-mid);
+      border: 2px solid var(--border-lime);
+      border-radius: var(--radius-lg);
+      padding: clamp(20px,4vh,36px) clamp(18px,4vw,32px);
+      text-align: center;
+      max-width: 360px; width: 100%;
+      box-shadow: 0 32px 80px rgba(0,0,0,.7);
+      animation: winBounce .55s ease;
+    }
+    #win-box.game-over-box { border-color: var(--pink); }
+    .win-trophy { font-size:clamp(2.4rem,6vh,4rem); margin-bottom:8px; display:block; }
+    .win-title  { font-family:'Fredoka One',cursive; font-size:clamp(1.5rem,4vh,2rem); color:var(--lime); margin-bottom:3px; }
+    .game-over-box .win-title { color: var(--pink); }
+    .win-sub    { font-size:clamp(.78rem,2vh,.9rem); color:var(--text-dim); font-weight:700; margin-bottom:18px; }
+    
+    .win-stats  { display:flex; gap:10px; justify-content:center; margin-bottom:22px; flex-wrap:wrap; }
+    .win-stat   { background:var(--navy); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; display:flex; flex-direction:column; gap:4px; min-width:86px; }
+    .win-stat-val{ font-family:'Fredoka One',cursive; font-size:clamp(1.2rem,3.5vh,1.6rem); color:var(--lime); line-height:1; }
+    .win-stat-lbl{ font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--text-dark); }
+    
+    .win-btns   { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .win-btn    { font-family:'Fredoka One',cursive; font-size:clamp(.88rem,2.4vh,1rem); letter-spacing:.04em; padding:clamp(9px,2vh,12px) clamp(18px,4vw,26px); border-radius:100px; border:none; cursor:pointer; transition:all .2s; }
+    .win-btn-primary  { background:var(--lime); color:var(--navy); box-shadow:0 5px 18px rgba(126,211,33,.4); animation:pulseGlow 2s ease-in-out infinite; }
+    .win-btn-primary:hover { background:var(--lime-dark); transform:translateY(-2px); }
+    .win-btn-secondary{ background:var(--navy-card); color:var(--text-dim); border:2px solid var(--border); }
+    .win-btn-secondary:hover{ border-color:var(--orange); color:var(--orange); }
+	
+	.emoji-style {
+		/* Standard emojis are roughly 1em x 1em */
+		height: 1em;
+		width: 1em;
+		
+		/* Aligns the image with the text baseline like an emoji */
+		vertical-align: middle;
+		
+		/* Optional: prevents the icon from looking squashed */
+		object-fit: contain;
+		
+		/* Ensures it doesn't sit higher than the text */
+		position: relative;
+	}
+
+	.menu-icon {
+		display: inline-flex;
+		align-items: center;
+	}
+
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ MAIN MENU ══════════════ -->
+<div id="menu" class="screen">
+  <div class="menu-bg" aria-hidden="true">
+    <div class="msym" style="top:6%;left:4%;animation-delay:0s">🟦</div>
+    <div class="msym" style="bottom:12%;right:7%;animation-delay:.7s">🟦</div>
+
+    <div class="msym" style="top:10%;right:5%;animation-delay:1.2s">🟨</div>
+    <div class="msym" style="top:60%;left:16%;animation-delay:3.2s">🟨</div>
+
+    <div class="msym" style="bottom:50%;left:16%;animation-delay:2.1s">🟥</div>
+    <div class="msym" style="bottom:28%;right:16%;animation-delay:1.5s">🟥</div>
+
+    <div class="msym" style="top:46%;left:2%;animation-delay:1.8s">🟩</div>
+    <div class="msym" style="top:30%;right:12%;animation-delay:0.5s">🟩</div>
+
+    <div class="msym" style="top:38%;right:3%;animation-delay:2.8s">🟧</div>
+    <div class="msym" style="bottom:5%;left:20%;animation-delay:1.1s">🟧</div>
+
+    <div class="msym" style="top:80%;left:5%;animation-delay:2.4s">🟪</div>
+    <div class="msym" style="top:20%;right:23%;animation-delay:1.9s">🟪</div>
+  </div>
+
+  <div class="menu-content">
+    <div class="menu-header">
+      <div class="menu-icon">
+		<img src="icon.png" alt="Menu Icon" class="emoji-style">
+      </div>
+      <div class="menu-title">Pattern <em>Match</em></div>
+      <div class="menu-sub">Watch and repeat!</div>
+    </div>
+
+    <div class="diff-cards">
+      <div class="diff-card selected" data-mode="easy" style="--cc:var(--lime); --cc-glow:var(--lime-glow)" tabindex="0" role="button" aria-pressed="true">
+        <div class="dc-left">
+          <div class="dc-icon">🟢</div>
+          <div class="dc-info">
+            <span class="dc-name">Easy</span>
+            <span class="dc-desc">4 Pads • Slow</span>
+          </div>
+        </div>
+        <div class="dc-lives">❤️❤️❤️</div>
+      </div>
+      
+      <div class="diff-card" data-mode="medium" style="--cc:var(--orange); --cc-glow:var(--orange-glow)" tabindex="0" role="button" aria-pressed="false">
+        <div class="dc-left">
+          <div class="dc-icon">🟠</div>
+          <div class="dc-info">
+            <span class="dc-name">Medium</span>
+            <span class="dc-desc">4 Pads • Fast</span>
+          </div>
+        </div>
+        <div class="dc-lives">❤️🤍🤍</div>
+      </div>
+      
+      <div class="diff-card" data-mode="hard" style="--cc:var(--pink); --cc-glow:var(--pink-glow)" tabindex="0" role="button" aria-pressed="false">
+        <div class="dc-left">
+          <div class="dc-icon">🔴</div>
+          <div class="dc-info">
+            <span class="dc-name">Hard</span>
+            <span class="dc-desc">6 Pads • Hyper</span>
+          </div>
+        </div>
+        <div class="dc-lives">💀 No Lives</div>
+      </div>
+    </div>
+
+    <button class="play-btn" id="play-btn">▶ Play Now</button>
+  </div>
+</div>
+
+<!-- ══════════════ GAME VIEW ══════════════ -->
+<div id="game" class="screen hidden">
+  <div id="topbar">
+    <div class="stat-chip">⭐ <span class="val" id="score-val">0</span></div>
+    <div class="stat-chip" id="lives-chip">❤️ <span class="val" id="lives-val">3</span></div>
+    <div class="stat-chip" id="status-chip">👁️ Watch...</div>
+    <div class="stat-chip" style="display:none;">👑 <span class="val orange" id="best-val">0</span></div>
+    <button class="back-btn" id="back-btn">← Back</button>
+  </div>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+  <div id="grid-wrap"><div id="Pattern-board"></div></div>
+</div>
+
+<!-- ══════════════ GAME OVER OVERLAY ══════════════ -->
+<div id="overlay" role="dialog" aria-modal="true" aria-label="Game Over">
+  <div id="win-box" class="game-over-box">
+    <span class="win-trophy" id="win-trophy">💥</span>
+    <div class="win-title" id="win-title">Game Over!</div>
+    <div class="win-sub" id="win-sub">Wrong pad. Keep practicing!</div>
+    
+    <div class="win-stats">
+      <div class="win-stat"><span class="win-stat-val" id="ws-score">0</span><span class="win-stat-lbl">Score</span></div>
+      <div class="win-stat"><span class="win-stat-val" id="ws-best">0</span><span class="win-stat-lbl">Best</span></div>
+    </div>
+    <div class="win-btns">
+      <button class="win-btn win-btn-primary" id="play-again-btn">▶ Try Again</button>
+      <button class="win-btn win-btn-secondary" id="back-to-menu-btn">☰ Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── CONFIG ── */
+const MODES = {
+  easy:   { pads: 4, cols: 2, rows: 2, lightMs: 500, gapMs: 300, waitMs: 800, lives: 3 },
+  medium: { pads: 4, cols: 2, rows: 2, lightMs: 300, gapMs: 150, waitMs: 600, lives: 1 },
+  hard:   { pads: 6, cols: 3, rows: 2, lightMs: 200, gapMs: 100, waitMs: 400, lives: 0 },
+};
+
+// Fix timings - new configuration constants
+const MIN_LIGHT_MS = 150; // Forces the pad to stay lit for at least 150ms visually
+const DEBOUNCE_MS = 50;   // Prevents hardware double-bounces within 50ms
+
+// Game State
+let mode = 'easy';
+let sequence = [];
+let playerStep = 0;
+let score = 0;
+let currentLives = 0;
+let bestScores = { easy: 0, medium: 0, hard: 0 };
+let isComputerTurn = false;
+let gameActive = false;
+let padElements = [];
+
+/* ── UI ELEMENTS ── */
+const menuEl       = document.getElementById('menu');
+const gameEl       = document.getElementById('game');
+const board        = document.getElementById('Pattern-board');
+const scoreVal     = document.getElementById('score-val');
+const livesVal     = document.getElementById('lives-val');
+const bestVal      = document.getElementById('best-val');
+const bestChip     = bestVal.parentElement;
+const statusChip   = document.getElementById('status-chip');
+const progressFill = document.getElementById('progress-fill');
+const overlay      = document.getElementById('overlay');
+
+/* ── MENU INTERACTIONS ── */
+document.querySelectorAll('.diff-card').forEach(card => {
+  card.addEventListener('click', () => selectMode(card.dataset.mode));
+  card.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') selectMode(card.dataset.mode); });
+});
+
+function selectMode(m) {
+  mode = m;
+  document.querySelectorAll('.diff-card').forEach(c => {
+    const on = c.dataset.mode === m;
+    c.classList.toggle('selected', on);
+    c.setAttribute('aria-pressed', String(on));
+  });
+}
+
+document.getElementById('play-btn').addEventListener('click', () => {
+  menuEl.classList.add('hidden');
+  gameEl.classList.remove('hidden');
+  bestChip.style.display = 'flex';
+  bestVal.textContent = bestScores[mode];
+  startGame();
+});
+
+function goToMenu() {
+  gameActive = false;
+  overlay.classList.remove('show');
+  gameEl.classList.add('hidden');
+  menuEl.classList.remove('hidden');
+}
+
+document.getElementById('back-btn').addEventListener('click', goToMenu);
+document.getElementById('back-to-menu-btn').addEventListener('click', goToMenu);
+document.getElementById('play-again-btn').addEventListener('click', () => {
+  overlay.classList.remove('show');
+  startGame();
+});
+
+/* ── GAME SETUP ── */
+function startGame() {
+  sequence = [];
+  score = 0;
+  currentLives = MODES[mode].lives;
+  gameActive = true;
+  updateScoreUI();
+  updateLivesUI();
+  buildBoard();
+  setTimeout(nextRound, 800);
+}
+
+function updateLivesUI() {
+  livesVal.textContent = currentLives;
+  if (currentLives === 0) {
+    livesVal.className = 'val pink';
+  } else {
+    livesVal.className = 'val';
+  }
+}
+
+function buildBoard() {
+  board.innerHTML = '';
+  padElements = [];
+  const cfg = MODES[mode];
+  
+  board.style.gridTemplateColumns = `repeat(${cfg.cols}, 1fr)`;
+  board.style.gridTemplateRows = `repeat(${cfg.rows}, 1fr)`;
+  board.style.aspectRatio = cfg.cols / cfg.rows;
+
+  for (let i = 0; i < cfg.pads; i++) {
+    const pad = document.createElement('div');
+    pad.className = 'Pattern-pad';
+    pad.style.setProperty('--bg-base', `var(--pad-${i}-base)`);
+    pad.style.setProperty('--bg-lit', `var(--pad-${i}-lit)`);
+    pad.style.setProperty('--bg-glow', `var(--pad-${i}-lit)`);
+    
+    // Use pointer events for responsive touch + mouse
+    pad.addEventListener('pointerdown', (e) => handlePadDown(i, e));
+    pad.addEventListener('pointerup', () => handlePadUp(i));
+    pad.addEventListener('pointerleave', () => handlePadUp(i));
+    pad.addEventListener('pointercancel', () => handlePadUp(i));
+    
+    // Prevent default touch behavior (text selection, context menu)
+    pad.addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+    
+    board.appendChild(pad);
+    padElements.push(pad);
+  }
+}
+
+/* ── GAME LOGIC ── */
+async function nextRound() {
+  if (!gameActive) return;
+  
+  playerStep = 0;
+  progressFill.style.width = '0%';
+  
+  // Add new step
+  const cfg = MODES[mode];
+  sequence.push(Math.floor(Math.random() * cfg.pads));
+  
+  await playSequence();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function playSequence() {
+  isComputerTurn = true;
+  document.body.classList.add('computer-turn');
+  statusChip.innerHTML = '👁️ Watch...';
+  statusChip.style.color = ''; 
+  statusChip.style.borderColor = ''; 
+  statusChip.classList.remove('player-turn');
+  
+  const cfg = MODES[mode];
+  
+  await sleep(cfg.waitMs);
+  
+  for (let i = 0; i < sequence.length; i++) {
+    if (!gameActive) break;
+    const padId = sequence[i];
+    
+    padElements[padId].classList.add('active');
+    
+    await sleep(cfg.lightMs);
+    padElements[padId].classList.remove('active');
+    
+    if (i < sequence.length - 1) {
+      await sleep(cfg.gapMs);
+    }
+  }
+  
+  if (gameActive) {
+    isComputerTurn = false;
+    document.body.classList.remove('computer-turn');
+    statusChip.innerHTML = '👆 Your Turn!';
+    statusChip.classList.add('player-turn');
+  }
+}
+
+function handlePadDown(id, e) {
+  if (isComputerTurn || !gameActive) return;
+  if (e) e.preventDefault(); // Stop mouse emulation on touch
+
+  const pad = padElements[id];
+  const now = Date.now();
+  const lastPress = parseInt(pad.dataset.lastPress || 0);
+
+  // 1. DEBOUNCE: Ignore micro-bounces that happen faster than humanly possible
+  if (now - lastPress < DEBOUNCE_MS) return;
+  pad.dataset.lastPress = now;
+
+  // 2. VISUALS: Turn on light and clear any pending turn-off timeouts
+  clearTimeout(pad.lightTimeout);
+  pad.classList.add('active');
+  pad.dataset.pressTime = now;
+
+  // 3. LOGIC: Completely independent from the visual state above
+  if (id === sequence[playerStep]) {
+    // CORRECT PAD
+    playerStep++;
+    progressFill.style.width = `${(playerStep / sequence.length) * 100}%`;
+    
+    if (playerStep === sequence.length) {
+      // Completed the sequence
+      score++;
+      updateScoreUI();
+      gameActive = false; // Lock out further taps immediately
+      document.body.classList.add('computer-turn');
+      
+      statusChip.innerHTML = '✨ Perfect!';
+      statusChip.style.color = 'var(--lime)';
+      statusChip.style.borderColor = 'rgba(126,211,33,0.3)';
+      
+      setTimeout(() => {
+        gameActive = true; 
+        nextRound();
+      }, 1000);
+    }
+  } else {
+    // WRONG PAD
+    gameActive = false; // Immediately blocks inputs so they can't continue the pattern
+    board.classList.add('shake');
+    setTimeout(() => board.classList.remove('shake'), 400);
+
+    if (currentLives > 0) {
+      currentLives--;
+      updateLivesUI();
+      
+      statusChip.innerHTML = '❌ Try Again!';
+      statusChip.style.color = 'var(--pink)';
+      statusChip.style.borderColor = 'rgba(255,77,166,0.3)';
+      
+      setTimeout(() => {
+        playerStep = 0;
+        progressFill.style.width = '0%';
+        gameActive = true;
+        playSequence();
+      }, 1200);
+    } else {
+      gameOver();
+    }
+  }
+}
+
+function handlePadUp(id) {
+  // Never manually turn off lights if the computer is currently running a sequence
+  if (isComputerTurn) return; 
+  
+  const pad = padElements[id];
+  if (!pad.classList.contains('active')) return;
+
+  const pressTime = parseInt(pad.dataset.pressTime || 0);
+  const elapsed = Date.now() - pressTime;
+
+  // Ensure the pad stays visually lit long enough for the human eye
+  if (elapsed < MIN_LIGHT_MS) {
+    pad.lightTimeout = setTimeout(() => {
+      pad.classList.remove('active');
+    }, MIN_LIGHT_MS - elapsed);
+  } else {
+    pad.classList.remove('active'); // If held down a long time, turn off immediately
+  }
+}
+
+function updateScoreUI() {
+  scoreVal.textContent = score;
+  if (score > bestScores[mode]) {
+    bestScores[mode] = score;
+    bestVal.textContent = bestScores[mode];
+  }
+}
+
+/* ── GAME OVER ── */
+function gameOver() {
+  gameActive = false;
+  isComputerTurn = true;
+  document.body.classList.add('computer-turn');
+  setTimeout(showGameOverMenu, 600);
+}
+
+function showGameOverMenu() {
+  document.getElementById('ws-score').textContent = score;
+  document.getElementById('ws-best').textContent = bestScores[mode];
+  
+  const title = document.getElementById('win-title');
+  const sub = document.getElementById('win-sub');
+  const trophy = document.getElementById('win-trophy');
+  
+  if (score === 0) {
+    title.textContent = "Oops!";
+    sub.textContent = "Everybody starts somewhere.";
+    trophy.textContent = "💥";
+    document.getElementById('win-box').style.borderColor = "var(--pink)";
+  } else if (score >= bestScores[mode] && score > 0) {
+    title.textContent = "New Best!";
+    title.style.color = "var(--lime)";
+    sub.textContent = `Incredible focus! You reached round ${score}.`;
+    trophy.textContent = "🏆";
+    document.getElementById('win-box').style.borderColor = "var(--lime)";
+    spawnConfetti();
+  } else {
+    title.textContent = "Game Over!";
+    title.style.color = "var(--orange)";
+    sub.textContent = `You made it to round ${score}.`;
+    trophy.textContent = "🧠";
+    document.getElementById('win-box').style.borderColor = "var(--orange)";
+  }
+  
+  overlay.classList.add('show');
+}
+
+/* ── CONFETTI (for high scores) ── */
+const CONF=['#7ed321','#ff7b00','#00d4ff','#ff4da6','#ffd60a','#fff'];
+function spawnConfetti(){
+  for(let i=0;i<60;i++){
+    const p=document.createElement('div'); 
+    p.className='confetti-piece';
+    p.style.cssText=`
+      position:fixed; pointer-events:none; z-index:9999;
+      left:${Math.random()*100}vw; top:-20px;
+      background:${CONF[Math.floor(Math.random()*CONF.length)]};
+      width:${6+Math.random()*8}px; height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>.5?'50%':'2px'};
+      animation: confettiFall ${1.8+Math.random()*2.4}s linear ${Math.random()*.9}s both;
+    `;
+    document.body.appendChild(p);
+    p.addEventListener('animationend',()=>p.remove());
+  }
+}
+
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+</script>
+</body>
+</html>

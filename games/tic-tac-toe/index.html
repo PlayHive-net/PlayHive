@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Tic-Tac-Toe — PlayHive.Net</title>
+  <style>
+    :root {
+      --navy:#0d1b2a;--navy-mid:#132338;--navy-card:#1a2f47;
+      --lime:#7ed321;--lime-dark:#5fab00;
+      --orange:#ff7b00;--cyan:#00d4ff;--pink:#ff4da6;--yellow:#ffd60a;
+      --red:#ff3d3d;--green:#4cff8f;
+      --text:#e8f1fa;--text-dim:#7a99bb;--text-dark:#3d5a75;
+      --border:rgba(255,255,255,0.08);
+      --radius:10px;--radius-lg:14px;
+    }
+	@font-face {
+	  font-family: 'Fredoka One';
+	  src: url("../../fonts/fredokaone.woff2") format("woff2");
+	  font-weight: 400;
+	  font-style: normal;
+	}
+	@font-face {
+	  font-family: 'Nunito';
+	  src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+	  font-weight: 200 900;
+	  font-style: normal;
+	}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;}
+    body{
+      font-family:'Nunito',sans-serif;background:var(--navy);color:var(--text);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100vh;position:relative;user-select:none;-webkit-user-select:none;
+    }
+    body::before{content:'';position:fixed;inset:0;
+      background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);
+      background-size:40px 40px;pointer-events:none;z-index:0}
+    .glow-blob{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;opacity:0.18;}
+    .glow-blob-1{width:350px;height:350px;background:#00d4ff;top:-80px;left:-80px;}
+    .glow-blob-2{width:280px;height:280px;background:#ff4da6;bottom:-60px;right:-60px;}
+
+    /* ── WRAPPER ── */
+    .game-wrapper{
+      position:relative;z-index:1;
+      display:flex;flex-direction:column;align-items:center;
+      gap:10px;padding:16px;width:100%;max-width:440px;
+    }
+
+    /* ── HEADER ── */
+    .game-header{width:100%;display:flex;align-items:flex-start;justify-content:space-between;}
+    .game-title{font-family:'Fredoka One',cursive;font-size:2.4rem;color:var(--lime);letter-spacing:.04em;line-height:1;}
+    .game-subtitle{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dark);margin-top:3px;}
+    .score-row{display:flex;gap:8px;margin-top:2px;}
+    .score-box{
+      background:var(--navy-card);border:2px solid var(--border);
+      border-radius:var(--radius);padding:5px 14px;text-align:center;min-width:68px;
+    }
+    .score-label{font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);}
+    .score-val{font-family:'Fredoka One',cursive;font-size:1.35rem;line-height:1.1;color:#fff;}
+
+    /* ── BOARD WRAP ── */
+    .board-wrap{
+      position:relative;width:100%;z-index:1;
+      background:var(--navy-mid);border:2px solid var(--border);
+      border-radius:var(--radius-lg);padding:20px;
+      box-shadow:0 12px 40px rgba(0,0,0,.5);
+      min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    }
+
+    /* ── STATUS AREA ── */
+    .status-area{text-align:center;width:100%;}
+    .status-text{
+      font-family:'Fredoka One',cursive;font-size:1.8rem;color:#fff;
+      letter-spacing:.03em;line-height:1.2;
+    }
+
+    /* ── TIC-TAC-TOE GRID ── */
+    .ttt-grid{
+      display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;
+      width:100%;max-width:280px;margin:0 auto;
+    }
+    .cell{
+      aspect-ratio:1/1;
+      font-family:'Fredoka One',cursive;font-size:3.5rem;
+      border-radius:var(--radius);border:2px solid var(--border);cursor:pointer;
+      background:var(--navy-card);color:var(--text);
+      display:flex;align-items:center;justify-content:center;
+      transition:all .15s;position:relative;overflow:hidden;
+    }
+    .cell:hover:not(:disabled){border-color:var(--lime);transform:translateY(-2px);box-shadow:0 6px 20px rgba(126,211,33,.15);}
+    .cell:active:not(:disabled){transform:translateY(0);}
+    .cell:disabled{cursor:default;}
+    
+    .cell.x { color: var(--lime); text-shadow: 0 0 15px rgba(126,211,33,0.4); }
+    .cell.o { color: var(--pink); text-shadow: 0 0 15px rgba(255,77,166,0.4); }
+    
+    .cell.win{
+      background:rgba(255,214,10,.15);border-color:var(--yellow);
+      animation:popWin .4s ease;
+    }
+    @keyframes popWin{
+      0%,100%{transform:scale(1)} 50%{transform:scale(1.1)}
+    }
+
+    /* ── OVERLAYS ── */
+    .overlay{
+      position:absolute;inset:0;border-radius:var(--radius-lg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:16px;z-index:10;
+      background:rgba(13,27,42,0.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      text-align:center;padding:28px;transition:opacity .25s;
+    }
+    .overlay.hidden{display:none;}
+    .overlay:not(.hidden){animation:popIn .3s ease both;}
+    .overlay-emoji{font-size:3rem;line-height:1;}
+    .overlay-title{font-family:'Fredoka One',cursive;font-size:2rem;color:#fff;letter-spacing:.03em;line-height:1.1;}
+    .overlay-title em{font-style:normal;color:var(--lime);}
+    .overlay-title .bad{color:var(--orange);}
+    .overlay-sub{font-size:.85rem;font-weight:700;color:var(--text-dim);max-width:260px;line-height:1.6;}
+    
+    .result-stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+    .stat-pill{
+      background:var(--navy-card);border:1.5px solid var(--border);border-radius:100px;
+      padding:6px 16px;text-align:center;
+    }
+    .stat-val{font-family:'Fredoka One',cursive;font-size:1.1rem;color:#fff;}
+    .stat-lbl{font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);}
+
+    /* ── BUTTONS ── */
+    .btn-play{
+      display:inline-flex;align-items:center;gap:8px;
+      font-family:'Fredoka One',cursive;font-size:1.1rem;letter-spacing:.04em;
+      padding:13px 36px;border-radius:100px;border:none;cursor:pointer;
+      background:var(--lime);color:var(--navy);
+      box-shadow:0 4px 20px rgba(126,211,33,.4);transition:all .2s;
+    }
+    .btn-play:hover{background:var(--lime-dark);transform:translateY(-2px);box-shadow:0 8px 28px rgba(126,211,33,.5);}
+    .btn-play:active{transform:translateY(0);}
+
+    /* ── BOTTOM BAR ── */
+    .bottom-bar{display:flex;align-items:center;justify-content:space-between;width:100%;}
+    .difficulty-pills{display:flex;gap:6px;}
+    .diff-pill{
+      font-family:'Fredoka One',cursive;font-size:.78rem;letter-spacing:.03em;
+      padding:6px 14px;border-radius:100px;border:2px solid var(--border);cursor:pointer;
+      background:var(--navy-card);color:var(--text-dim);transition:all .2s;
+    }
+    .diff-pill.active{border-color:var(--lime);color:var(--lime);background:rgba(126,211,33,.08);}
+    .diff-pill:hover:not(.active){border-color:var(--text-dim);color:var(--text);}
+    .hint{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dark);}
+
+    /* ── SCORE DELTA ── */
+    .score-delta{
+      position:absolute;top:10px;right:14px;font-family:'Fredoka One',cursive;
+      font-size:1rem;pointer-events:none;
+      animation:deltaFloat .9s ease forwards;z-index:20;
+    }
+    .score-delta.plus{color:var(--lime);}
+    @keyframes deltaFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-32px)}}
+
+    @keyframes popIn{
+      from{opacity:0;transform:scale(0.85) translateY(12px);}
+      to{opacity:1;transform:scale(1) translateY(0);}
+    }
+  </style>
+</head>
+<body>
+
+<div class="glow-blob glow-blob-1"></div>
+<div class="glow-blob glow-blob-2"></div>
+
+<div class="game-wrapper" id="game-wrapper">
+
+  <div class="game-header">
+    <div class="title-block">
+      <div class="game-title">Tic-Tac-Toe</div>
+      <div class="game-subtitle">Strategy &middot; X vs O &middot; <span id="diff-label">Easy</span></div>
+    </div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-label">Score</div>
+        <div class="score-val" id="score">0</div>
+      </div>
+      <div class="score-box">
+        <div class="score-label">Best</div>
+        <div class="score-val" id="best">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-wrap" id="board-wrap">
+
+    <div class="overlay" id="screen-start">
+      <div class="overlay-emoji">❌⭕</div>
+      <div class="overlay-title">Tic-Tac-Toe</div>
+      <div class="overlay-sub">Play as X against the computer. Beat higher difficulties for more points!</div>
+      <button class="btn-play" id="btn-start">&#9654; Start Game</button>
+    </div>
+
+    <div class="overlay hidden" id="overlay-gameover">
+      <div class="overlay-emoji" id="end-emoji">🎉</div>
+      <div class="overlay-title" id="end-title"><em>You Won!</em></div>
+      <div class="result-stats" id="end-stats"></div>
+      <div class="overlay-sub" id="end-msg"></div>
+      <div class="overlay-btns" style="margin-top: 10px;">
+        <button class="btn-play" id="btn-restart">↺ Play Again</button>
+      </div>
+    </div>
+
+    <div id="game-content" style="display:none;width:100%;flex-direction:column;gap:20px;align-items:center;">
+      
+      <div class="status-area">
+        <div class="status-text" id="status-text">Your Turn!</div>
+      </div>
+
+      <div class="ttt-grid" id="ttt-grid">
+        <button class="cell" data-idx="0"></button>
+        <button class="cell" data-idx="1"></button>
+        <button class="cell" data-idx="2"></button>
+        <button class="cell" data-idx="3"></button>
+        <button class="cell" data-idx="4"></button>
+        <button class="cell" data-idx="5"></button>
+        <button class="cell" data-idx="6"></button>
+        <button class="cell" data-idx="7"></button>
+        <button class="cell" data-idx="8"></button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="difficulty-pills">
+      <button class="diff-pill active" data-diff="easy">Easy</button>
+      <button class="diff-pill" data-diff="medium">Medium</button>
+      <button class="diff-pill" data-diff="hard">Hard</button>
+    </div>
+    <div class="hint">Beat AI to score</div>
+  </div>
+
+</div>
+
+<script>
+/* ── CONFIG & STATE ── */
+const WIN_COMBOS = [
+  [0,1,2], [3,4,5], [6,7,8], // Rows
+  [0,3,6], [1,4,7], [2,5,8], // Cols
+  [0,4,8], [2,4,6]           // Diagonals
+];
+
+const POINTS = { easy: 10, medium: 20, hard: 50 };
+
+let difficulty = 'easy';
+let score = 0;
+let best = parseInt(localStorage.getItem('ttt-best') || '0');
+let board = Array(9).fill('');
+let gameActive = false;
+let isPlayerTurn = true;
+
+const player = 'X';
+const ai = 'O';
+
+/* ── DOM ── */
+const scoreEl    = document.getElementById('score');
+const bestEl     = document.getElementById('best');
+const statusText = document.getElementById('status-text');
+const cells      = Array.from(document.querySelectorAll('.cell'));
+const gameContent= document.getElementById('game-content');
+const screenStart= document.getElementById('screen-start');
+const goOverlay  = document.getElementById('overlay-gameover');
+const boardWrap  = document.getElementById('board-wrap');
+const diffLabel  = document.getElementById('diff-label');
+const endEmoji   = document.getElementById('end-emoji');
+const endTitle   = document.getElementById('end-title');
+const endStats   = document.getElementById('end-stats');
+const endMsg     = document.getElementById('end-msg');
+
+/* ── SCORE ANIMATION ── */
+function showDelta(val){
+  const d = document.createElement('div');
+  d.className = 'score-delta plus';
+  d.textContent = '+' + val;
+  boardWrap.appendChild(d);
+  d.addEventListener('animationend', () => d.remove());
+}
+
+/* ── GAME LOGIC ── */
+function checkWin(currentBoard, testPlayer) {
+  for (let i = 0; i < WIN_COMBOS.length; i++) {
+    const [a, b, c] = WIN_COMBOS[i];
+    if (currentBoard[a] === testPlayer && currentBoard[b] === testPlayer && currentBoard[c] === testPlayer) {
+      return { win: true, combo: [a, b, c] };
+    }
+  }
+  return { win: false, combo: [] };
+}
+
+function checkDraw(currentBoard) {
+  return currentBoard.every(cell => cell !== '');
+}
+
+function handleCellClick(e) {
+  const idx = e.target.dataset.idx;
+  if (board[idx] !== '' || !gameActive || !isPlayerTurn) return;
+
+  makeMove(idx, player);
+
+  if (checkGameState()) return;
+
+  isPlayerTurn = false;
+  statusText.textContent = "AI is thinking...";
+  setTimeout(makeAIMove, 500); // Small delay to feel natural
+}
+
+function makeMove(idx, mover) {
+  board[idx] = mover;
+  cells[idx].textContent = mover;
+  cells[idx].classList.add(mover.toLowerCase());
+  cells[idx].disabled = true;
+}
+
+function makeAIMove() {
+  if (!gameActive) return;
+
+  let moveIdx;
+  if (difficulty === 'easy') {
+    moveIdx = getRandomMove();
+  } else if (difficulty === 'medium') {
+    // 50% chance to make a smart move, 50% chance random
+    moveIdx = Math.random() > 0.5 ? getBestMove() : getRandomMove();
+  } else {
+    // Hard: Perfect play via Minimax
+    moveIdx = getBestMove();
+  }
+
+  // Fallback if no smart move found
+  if (moveIdx === undefined || board[moveIdx] !== '') moveIdx = getRandomMove();
+
+  makeMove(moveIdx, ai);
+  isPlayerTurn = true;
+  statusText.textContent = "Your Turn!";
+  checkGameState();
+}
+
+function getRandomMove() {
+  const emptyCells = board.map((val, idx) => val === '' ? idx : null).filter(val => val !== null);
+  return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+}
+
+/* ── MINIMAX ALGORITHM ── */
+function getBestMove() {
+  let bestScore = -Infinity;
+  let move;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === '') {
+      board[i] = ai;
+      let score = minimax(board, 0, false);
+      board[i] = '';
+      if (score > bestScore) {
+        bestScore = score;
+        move = i;
+      }
+    }
+  }
+  return move;
+}
+
+function minimax(newBoard, depth, isMaximizing) {
+  if (checkWin(newBoard, ai).win) return 10 - depth;
+  if (checkWin(newBoard, player).win) return depth - 10;
+  if (checkDraw(newBoard)) return 0;
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (newBoard[i] === '') {
+        newBoard[i] = ai;
+        let score = minimax(newBoard, depth + 1, false);
+        newBoard[i] = '';
+        bestScore = Math.max(score, bestScore);
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (newBoard[i] === '') {
+        newBoard[i] = player;
+        let score = minimax(newBoard, depth + 1, true);
+        newBoard[i] = '';
+        bestScore = Math.min(score, bestScore);
+      }
+    }
+    return bestScore;
+  }
+}
+
+/* ── GAME STATE & ENDINGS ── */
+function checkGameState() {
+  const playerWin = checkWin(board, player);
+  const aiWin = checkWin(board, ai);
+  const draw = checkDraw(board);
+
+  if (playerWin.win) {
+    endGame('win', playerWin.combo);
+    return true;
+  } else if (aiWin.win) {
+    endGame('lose', aiWin.combo);
+    return true;
+  } else if (draw) {
+    endGame('draw');
+    return true;
+  }
+  return false;
+}
+
+function endGame(result, combo = []) {
+  gameActive = false;
+  statusText.textContent = "Game Over";
+
+  if (combo.length > 0) {
+    combo.forEach(idx => cells[idx].classList.add('win'));
+  }
+
+  setTimeout(() => showResults(result), 800);
+}
+
+function showResults(result) {
+  let pointsEarned = 0;
+  
+  if (result === 'win') {
+    pointsEarned = POINTS[difficulty];
+    score += pointsEarned;
+    endEmoji.textContent = '🏆';
+    endTitle.innerHTML = '<em>You Won!</em>';
+    endMsg.textContent = 'Great strategy! Ready for another round?';
+    showDelta(pointsEarned);
+  } else if (result === 'lose') {
+    score = 0; // Reset streak on loss
+    endEmoji.textContent = '💀';
+    endTitle.innerHTML = '<span class="bad">You Lost!</span>';
+    endMsg.textContent = 'The AI outsmarted you. Try again!';
+  } else {
+    pointsEarned = 5; // Small consolation points for drawing
+    score += pointsEarned;
+    endEmoji.textContent = '🤝';
+    endTitle.innerHTML = '<em>It\'s a Draw!</em>';
+    endMsg.textContent = 'A hard-fought battle. Go again!';
+    showDelta(pointsEarned);
+  }
+
+  if (score > best) { 
+    best = score; 
+    localStorage.setItem('ttt-best', best); 
+  }
+  
+  scoreEl.textContent = score;
+  bestEl.textContent = best;
+
+  endStats.innerHTML = `
+    <div class="stat-pill"><div class="stat-val">+${pointsEarned}</div><div class="stat-lbl">Points</div></div>
+    <div class="stat-pill"><div class="stat-val">${score}</div><div class="stat-lbl">Current Streak</div></div>
+  `;
+
+  goOverlay.classList.remove('hidden');
+}
+
+/* ── START GAME ── */
+function startGame() {
+  screenStart.classList.add('hidden');
+  goOverlay.classList.add('hidden');
+  gameContent.style.display = 'flex';
+
+  // Reset board
+  board = Array(9).fill('');
+  gameActive = true;
+  isPlayerTurn = true;
+  statusText.textContent = "Your Turn!";
+  
+  cells.forEach(cell => {
+    cell.textContent = '';
+    cell.className = 'cell'; // remove x, o, win classes
+    cell.disabled = false;
+  });
+
+  const capDiff = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  diffLabel.textContent = capDiff;
+}
+
+/* ── EVENT LISTENERS ── */
+document.querySelectorAll('.diff-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.diff-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    difficulty = pill.dataset.diff;
+    diffLabel.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+    
+    // Reset score if difficulty changes to keep it fair
+    score = 0;
+    scoreEl.textContent = score;
+  });
+});
+
+cells.forEach(cell => {
+  cell.addEventListener('click', handleCellClick);
+});
+
+// Keyboard Support (Numpad mapping 1-9 to grid)
+document.addEventListener('keydown', e => {
+  if(!gameActive || !isPlayerTurn) return;
+  // Map standard keys 1-9 or Numpad 1-9 to cells.
+  // 1 2 3
+  // 4 5 6
+  // 7 8 9
+  const keyMap = { '1':0, '2':1, '3':2, '4':3, '5':4, '6':5, '7':6, '8':7, '9':8 };
+  if(e.key in keyMap){
+    const idx = keyMap[e.key];
+    const targetCell = cells[idx];
+    if(board[idx] === '') {
+      targetCell.click();
+    }
+  }
+});
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+
+/* ── INIT ── */
+bestEl.textContent = best;
+</script>
+</body>
+</html>

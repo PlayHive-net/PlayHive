@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Typing Race</title>
+  <style>
+    @font-face {
+      font-family: 'Fredoka One';
+      font-weight: 400;
+      font-style: normal;
+      src: url('../../fonts/fredokaone.woff2') format('woff2');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Nunito';
+      font-weight: 200 1000;
+      font-style: normal;
+      src: url('../../fonts/Nunito-VariableFont_wght.ttf') format('truetype');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-weight: 400;
+      font-style: normal;
+      src: url('../../fonts/JetBrainsMono-Regular.woff2') format('woff2');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-weight: 700;
+      font-style: normal;
+      src: url('../../fonts/JetBrainsMono-Bold.woff2') format('woff2');
+      font-display: swap;
+    }
+    :root {
+      --navy:#0d1b2a;--navy-mid:#132338;--navy-card:#1a2f47;
+      --lime:#7ed321;--lime-dark:#5fab00;
+      --orange:#ff7b00;--cyan:#00d4ff;--pink:#ff4da6;
+      --red:#ff3d3d;--green:#4cff8f;
+      --text:#e8f1fa;--text-dim:#7a99bb;--text-dark:#3d5a75;
+      --border:rgba(255,255,255,0.08);
+      --radius:12px;--radius-lg:16px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;}
+    body{
+      font-family:'Nunito',sans-serif;background:var(--navy);color:var(--text);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100vh;position:relative;user-select:none;-webkit-user-select:none;
+    }
+    .glow-blob{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;opacity:0.12;}
+    .glow-blob-1{width:300px;height:300px;background:#00d4ff;top:-80px;left:-80px;}
+    .glow-blob-2{width:250px;height:250px;background:#7ed321;bottom:-60px;right:-60px;}
+
+    .game-container{
+      position:relative;z-index:1;
+      display:flex;flex-direction:column;gap:12px;
+      padding:16px;width:100%;max-width:620px;
+    }
+
+    /* HEADER */
+    .game-header{width:100%;display:flex;align-items:center;justify-content:space-between;}
+    .game-title{font-family:'Fredoka One',cursive;font-size:2.2rem;color:var(--lime);line-height:1;}
+    .header-stats{display:flex;gap:8px;}
+    .h-stat{background:var(--navy-card);border:1.5px solid var(--border);border-radius:var(--radius);padding:5px 14px;text-align:center;min-width:72px;}
+    .h-label{font-size:.58rem;font-weight:900;text-transform:uppercase;color:var(--text-dim);letter-spacing:.1em;}
+    .h-val{font-family:'Fredoka One',cursive;font-size:1.15rem;color:#fff;}
+
+    /* BOARD */
+    .board-wrap{
+      position:relative;width:100%;
+      background:var(--navy-mid);border:1.5px solid var(--border);
+      border-radius:var(--radius-lg);padding:20px;
+      display:flex;flex-direction:column;gap:14px;
+      min-height:360px;
+    }
+
+    /* OVERLAYS */
+    .overlay{
+      position:absolute;inset:0;border-radius:var(--radius-lg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:14px;z-index:20;
+      background:rgba(13,27,42,0.97);
+      text-align:center;padding:28px;
+    }
+    .overlay.hidden{display:none;}
+    .overlay-emoji{font-size:3rem;line-height:1;}
+    .overlay-title{font-family:'Fredoka One',cursive;font-size:1.9rem;color:#fff;margin-top:-6px;}
+    .overlay-sub{font-size:.85rem;color:var(--text-dim);max-width:280px;line-height:1.6;}
+    .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:260px;}
+    .res-box{background:var(--navy-card);padding:10px 14px;border-radius:var(--radius);border:1px solid var(--border);}
+
+    /* PROGRESS LANE */
+    .race-lane{
+      width:100%;height:34px;
+      background:rgba(0,0,0,0.3);
+      border-radius:100px;position:relative;overflow:hidden;
+      border:1px solid var(--border);
+    }
+    .lane-track{
+      position:absolute;inset:0;
+      background-image:repeating-linear-gradient(90deg,transparent,transparent 20px,rgba(255,255,255,0.03) 20px,rgba(255,255,255,0.03) 21px);
+    }
+    .race-car{
+      position:absolute;top:50%;transform:translateY(-50%);
+      font-size:1.3rem;
+      transition:left 0.18s cubic-bezier(0.17,0.67,0.83,0.67);
+    }
+    .finish-line{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:1.1rem;opacity:0.5;}
+
+    /* TYPING WINDOW */
+    .typing-window{
+      width:100%;
+      height:80px;
+      background:rgba(0,0,0,0.3);
+      border:1.5px solid var(--border);
+      border-radius:var(--radius);
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+    }
+
+    /* center guide line */
+    .center-line{
+      position:absolute;
+      left:50%;
+      top:10%;bottom:10%;
+      width:2px;
+      background:var(--cyan);
+      opacity:0.25;
+      z-index:2;
+      pointer-events:none;
+      transform:translateX(-50%);
+    }
+
+    /* scroller is position:absolute so offsetLeft values are reliable */
+    .text-scroller{
+      display:flex;
+      align-items:center;
+      white-space:nowrap;
+      font-family:'JetBrains Mono',monospace;
+      font-size:1.7rem;
+      line-height:1;
+      position:absolute;
+      left:0;top:50%;
+      transform:translateY(-50%);
+      will-change:transform;
+    }
+
+    .char{color:var(--text-dark);display:inline-block;position:relative;}
+    .char.correct{color:var(--lime);}
+    .char.wrong{color:var(--red);background:rgba(255,61,61,0.15);border-radius:3px;}
+    .char.cursor{color:var(--text);}
+    .char.cursor::after{
+      content:'';
+      position:absolute;left:0;bottom:-3px;
+      width:100%;height:2.5px;
+      background:var(--cyan);
+      border-radius:100px;
+      box-shadow:0 0 6px var(--cyan);
+    }
+
+    /* INPUT */
+    #typing-input{
+      width:100%;
+      background:var(--navy-card);
+      border:1.5px solid var(--border);
+      border-radius:var(--radius);
+      padding:13px 16px;
+      color:#fff;
+      font-family:'JetBrains Mono',monospace;
+      font-size:1.1rem;
+      outline:none;
+      text-align:center;
+      caret-color:transparent;
+    }
+    #typing-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,212,255,0.1);}
+    #typing-input:disabled{opacity:0.4;cursor:default;}
+
+    /* BUTTONS */
+    .btn{
+      font-family:'Fredoka One',cursive;
+      padding:11px 32px;border-radius:100px;
+      border:none;cursor:pointer;
+      transition:all 0.18s;font-size:1.05rem;
+    }
+    .btn-primary{background:var(--lime);color:var(--navy);box-shadow:0 4px 14px rgba(126,211,33,0.28);}
+    .btn-primary:hover{transform:translateY(-2px);background:var(--lime-dark);}
+
+    /* FOOTER */
+    .bottom-controls{display:flex;justify-content:space-between;align-items:center;width:100%;}
+    .pill-group{display:flex;gap:6px;}
+    .pill{
+      background:var(--navy-card);border:1.5px solid var(--border);
+      padding:5px 14px;border-radius:100px;
+      color:var(--text-dim);cursor:pointer;
+      font-size:.78rem;font-weight:700;transition:all .15s;
+    }
+    .pill.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.06);}
+    .hint-label{font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);opacity:.5;}
+  </style>
+</head>
+<body>
+
+<div class="glow-blob glow-blob-1"></div>
+<div class="glow-blob glow-blob-2"></div>
+
+<div class="game-container">
+  <header class="game-header">
+    <h1 class="game-title">Typing Race</h1>
+    <div class="header-stats">
+      <div class="h-stat">
+        <div class="h-label">WPM</div>
+        <div class="h-val" id="top-wpm">0</div>
+      </div>
+      <div class="h-stat">
+        <div class="h-label">Best</div>
+        <div class="h-val" id="top-best">0</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="board-wrap">
+    <!-- START overlay -->
+    <div class="overlay" id="overlay-start">
+      <div class="overlay-emoji">🏎️</div>
+      <h2 class="overlay-title">Ready to Race?</h2>
+      <p class="overlay-sub">Type the scrolling text as fast as you can. The current character stays centered.</p>
+      <button class="btn btn-primary" onclick="game.start()">Start Engine</button>
+    </div>
+
+    <!-- RESULTS overlay -->
+    <div class="overlay hidden" id="overlay-results">
+      <div class="overlay-emoji" id="res-emoji">🏆</div>
+      <h2 class="overlay-title" id="res-title">Finished!</h2>
+      <div class="res-grid">
+        <div class="res-box">
+          <div class="h-label">Speed</div>
+          <div class="h-val" id="res-wpm">0</div>
+        </div>
+        <div class="res-box">
+          <div class="h-label">Accuracy</div>
+          <div class="h-val" id="res-acc">0%</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="game.start()">Race Again</button>
+    </div>
+
+    <!-- PROGRESS LANE -->
+    <div class="race-lane">
+      <div class="lane-track"></div>
+      <div class="race-car" id="car">🏎️</div>
+      <div class="finish-line">🏁</div>
+    </div>
+
+    <!-- TYPING WINDOW -->
+    <div class="typing-window" id="typing-window">
+      <div class="center-line"></div>
+      <div class="text-scroller" id="scroller"></div>
+    </div>
+
+    <input type="text" id="typing-input" spellcheck="false" autocomplete="off" placeholder="Waiting for start…">
+  </main>
+
+  <footer class="bottom-controls">
+    <div class="pill-group">
+      <div class="pill active" onclick="game.setMode('short',this)">Short</div>
+      <div class="pill" onclick="game.setMode('medium',this)">Medium</div>
+      <div class="pill" onclick="game.setMode('long',this)">Long</div>
+    </div>
+    <div class="hint-label">cursor stays centered</div>
+  </footer>
+</div>
+
+<script>
+const SENTENCES = [
+  "The quick brown fox jumps over the lazy dog.",
+  "Type as fast as you can to win the grand prize.",
+  "Precision is just as important as speed in this race.",
+  "Keep your eyes on the center line and stay focused.",
+  "A smooth sea never made a skilled sailor.",
+  "Success is not final, failure is not fatal.",
+  "The only way to do great work is to love what you do.",
+  "Every champion was once a contender that refused to give up.",
+  "Believe you can and you are halfway there.",
+  "Your speed will improve with every single race you finish.",
+  "Focus on the words sliding across your screen right now."
+];
+
+const game = {
+  mode: 'short',
+  fullText: '',
+  typed: '',
+  gameActive: false,
+  startTime: null,
+  correct: 0,
+  totalKeys: 0,
+  charEls: [],
+  best: JSON.parse(localStorage.getItem('tr-best') || '{"short":0,"medium":0,"long":0}'),
+
+  init() {
+    this.input    = document.getElementById('typing-input');
+    this.scroller = document.getElementById('scroller');
+    this.car      = document.getElementById('car');
+    this.win      = document.getElementById('typing-window');
+    this.input.addEventListener('input', e => this.handleInput(e));
+    this.updateBestDisplay();
+  },
+
+  setMode(m, el) {
+    if (this.gameActive) return;
+    this.mode = m;
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    this.updateBestDisplay();
+  },
+
+  updateBestDisplay() {
+    document.getElementById('top-best').textContent = this.best[this.mode];
+  },
+
+  start() {
+    document.getElementById('overlay-start').classList.add('hidden');
+    document.getElementById('overlay-results').classList.add('hidden');
+
+    const count = this.mode === 'short' ? 2 : (this.mode === 'medium' ? 5 : 10);
+    this.fullText  = [...SENTENCES].sort(() => Math.random() - .5).slice(0, count).join(' ');
+    this.typed     = '';
+    this.correct   = 0;
+    this.totalKeys = 0;
+    this.startTime = null;
+    this.gameActive = true;
+
+    this.input.value = '';
+    this.input.disabled = false;
+    this.input.placeholder = 'Start typing…';
+    this.input.focus();
+
+    this.buildChars();
+    this.scroll();
+  },
+
+  buildChars() {
+    this.scroller.innerHTML = '';
+    this.charEls = [];
+    for (let i = 0; i < this.fullText.length; i++) {
+      const s = document.createElement('span');
+      s.className = 'char';
+      s.textContent = this.fullText[i] === ' ' ? '\u00A0' : this.fullText[i];
+      this.scroller.appendChild(s);
+      this.charEls.push(s);
+    }
+  },
+
+  /*
+    Centering logic:
+    We want the current cursor character to sit at the exact
+    horizontal midpoint of the typing window.
+
+      windowMid = win.clientWidth / 2
+      charMid   = el.offsetLeft + el.offsetWidth / 2
+      translateX = windowMid - charMid
+
+    Because .text-scroller is position:absolute with left:0,
+    offsetLeft values are relative to the scroller itself, which
+    is what we want — we're shifting the whole scroller strip.
+  */
+  scroll() {
+    const cursorIdx = Math.min(this.typed.length, this.fullText.length - 1);
+    const el = this.charEls[cursorIdx];
+    if (!el) return;
+
+    const windowMid = this.win.clientWidth / 2;
+    const charMid   = el.offsetLeft + el.offsetWidth / 2;
+    const tx        = windowMid - charMid;
+
+    // preserve the Y centering already applied via CSS top:50%
+    this.scroller.style.transform = `translateY(-50%) translateX(${tx}px)`;
+  },
+
+  handleInput(e) {
+    if (!this.gameActive) return;
+    if (!this.startTime) this.startTime = Date.now();
+
+    const val = this.input.value;
+    if (val.length > this.typed.length) this.totalKeys++;
+    this.typed = val.substring(0, this.fullText.length);
+    this.input.value = this.typed;
+
+    this.correct = 0;
+    for (let i = 0; i < this.typed.length; i++) {
+      if (this.typed[i] === this.fullText[i]) this.correct++;
+    }
+
+    this.updateChars();
+    this.scroll();
+    this.updateLiveStats();
+
+    if (this.typed.length === this.fullText.length) this.finish();
+  },
+
+  updateChars() {
+    for (let i = 0; i < this.charEls.length; i++) {
+      const el = this.charEls[i];
+      el.className = 'char';
+      if (i < this.typed.length) {
+        el.classList.add(this.typed[i] === this.fullText[i] ? 'correct' : 'wrong');
+      } else if (i === this.typed.length) {
+        el.classList.add('cursor');
+      }
+    }
+  },
+
+  updateLiveStats() {
+    if (!this.startTime) return;
+    const mins = (Date.now() - this.startTime) / 60000;
+    const wpm  = Math.round((this.correct / 5) / mins) || 0;
+    document.getElementById('top-wpm').textContent = wpm;
+
+    const progress = (this.typed.length / this.fullText.length) * 88;
+    this.car.style.left = `calc(${progress}% + 4px)`;
+  },
+
+  finish() {
+    this.gameActive = false;
+    this.input.disabled = true;
+
+    const mins = (Date.now() - this.startTime) / 60000;
+    const wpm  = Math.round((this.correct / 5) / mins) || 0;
+    const acc  = Math.round((this.correct / Math.max(1, this.totalKeys)) * 100);
+
+    if (wpm > this.best[this.mode]) {
+      this.best[this.mode] = wpm;
+      localStorage.setItem('tr-best', JSON.stringify(this.best));
+    }
+
+    document.getElementById('res-wpm').textContent = wpm;
+    document.getElementById('res-acc').textContent  = acc + '%';
+
+    const emoji = document.getElementById('res-emoji');
+    const title = document.getElementById('res-title');
+    if (wpm > 60)      { emoji.textContent = '🔥'; title.textContent = 'Legendary!'; }
+    else if (wpm > 40) { emoji.textContent = '⚡'; title.textContent = 'Speedster!'; }
+    else               { emoji.textContent = '🏁'; title.textContent = 'Good Race!'; }
+
+    this.updateBestDisplay();
+    document.getElementById('overlay-results').classList.remove('hidden');
+  }
+};
+
+window.onload = () => game.init();
+</script>
+</body>
+</html>

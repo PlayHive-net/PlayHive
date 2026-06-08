@@ -255,11 +255,31 @@
     #modal-loading.hidden{opacity:0;pointer-events:none}
     .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite}
     #modal-loading p{font-weight:700;color:var(--text-dim);font-size:.86rem}
+    
+    #mobile-close-btn{
+      display:none;position:absolute;bottom:24px;left:24px;
+      width:36px;height:36px;border-radius:50%;
+      background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:1.1rem;font-weight:900;
+      z-index:9001;cursor:pointer;align-items:center;justify-content:center;
+      box-shadow:0 6px 24px rgba(0,0,0,0.5);
+    }
 
     /* RESPONSIVE */
     @media(max-width:1000px){#page-body{grid-template-columns:180px 1fr}}
-    @media(max-width:780px){#page-body{grid-template-columns:1fr}#sidebar{position:static;display:none}.feat-strip{grid-template-columns:1fr 1fr}#about-strip{grid-template-columns:1fr;gap:20px}.nav-links{display:none}.hamburger{display:flex}}
-    @media(max-width:500px){.feat-strip{grid-template-columns:1fr}.games-grid{grid-template-columns:repeat(2,1fr)}.cat-grid{grid-template-columns:repeat(2,1fr)}#modal-box{width:100vw;height:100dvh;border-radius:0}}
+    @media(max-width:780px){
+      #page-body{grid-template-columns:1fr}
+      #sidebar{position:static;display:none}
+      .feat-strip{grid-template-columns:1fr 1fr}
+      #about-strip{grid-template-columns:1fr;gap:20px}
+      .nav-links{display:none}
+      .hamburger{display:flex}
+      #modal-backdrop{padding:0}
+      #modal-box{width:100vw;height:100dvh;border-radius:0;border:none}
+      #modal-header{display:none}
+      #mobile-close-btn{display:flex}
+    }
+    @media(max-width:500px){.feat-strip{grid-template-columns:1fr}.games-grid{grid-template-columns:repeat(2,1fr)}.cat-grid{grid-template-columns:repeat(2,1fr)}}
 	
 	body {
 	  -webkit-user-select: none;
@@ -505,6 +525,7 @@
       <p>Loading game…</p>
     </div>
     <iframe id="game-iframe" sandbox="allow-scripts allow-same-origin" allow="fullscreen" title="Game" tabindex="-1"></iframe>
+    <button id="mobile-close-btn" aria-label="Close game">✕</button>
   </div>
 </div>
 
@@ -534,7 +555,8 @@ const GAMES = [
   { id:"galaxy-blaster", title:"Galaxy Blaster", description:"Pilot your ship and blast waves of alien enemies across the stars!", category:"skill", ageMin:7, ageMax:14, difficulty:"medium", thumbnail:"", emoji:"👾", src:"games/galaxy-blaster/index.html", featured:true, new:true, published:true },
   { id:"minesweeper", title:"Minesweeper", description:"Reveal tiles and avoid hidden mines using logic and clues!", category:"logic", ageMin:8, ageMax:14, difficulty:"medium", thumbnail:"", emoji:"💣", src:"games/minesweeper/index.html", featured:false, new:false, published:true },
   { id:"pattern-match", title:"Pattern Match", description:"Watch the sequence and repeat it perfectly—how long can you keep up?", category:"memory", ageMin:6, ageMax:14, difficulty:"easy", thumbnail:"", iconSrc:"games/pattern-match/icon.png", emoji:"🌈", src:"games/pattern-match/index.html", featured:false, new:true, published:true },
-  { id:"tile-shift", title:"Tile Shift", description:"Slide tiles around to put the numbers back in the correct order!", category:"logic", ageMin:6, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/tile-shift/icon.png", emoji:"🧩", src:"games/tile-shift/index.html", featured:false, new:true, published:true },
+  { id:"tile-shift", title:"Tile Shift", description:"Slide tiles around to put the numbers back in the correct order!", category:"logic", ageMin:6, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/tile-shift/icon.png", emoji:"🧩", src:"games/tile-shift/index.html", featured:false, new:false, published:true },
+  { id:"monolith", title:"Monolith", description:"Roll the monolith across to stand it upright on the portal.", category:"logic", ageMin:8, ageMax:14, difficulty:"medium", thumbnail:"", iconSrc:"games/monolith/icon.png", emoji:"🗿", src:"games/monolith/index.html", featured:true, new:true, published:true },
 ];
 
 /* Category metadata */
@@ -709,6 +731,7 @@ const iframe=document.getElementById("game-iframe");
 const loading=document.getElementById("modal-loading");
 const btnClose=document.getElementById("btn-close");
 const btnFull=document.getElementById("btn-fullscreen");
+const mobCloseBtn=document.getElementById("mobile-close-btn");
 
 function openModal(g){
   modalTitle.textContent=g.title;
@@ -738,8 +761,18 @@ iframe.addEventListener("load",()=>{
   }
 });
 btnClose.addEventListener("click",closeModal);
-btnFull.addEventListener("click",()=>iframe.requestFullscreen&&iframe.requestFullscreen().catch(()=>{}));
-backdrop.addEventListener("click",e=>{if(e.target===backdrop)closeModal()});
+mobCloseBtn.addEventListener("click",closeModal);
+btnFull.addEventListener("click", () => {
+  if (iframe.requestFullscreen) {
+    iframe.requestFullscreen().catch(()=>{});
+  } else if (iframe.webkitRequestFullscreen) {
+    iframe.webkitRequestFullscreen();
+  } else if (iframe.mozRequestFullScreen) {
+    iframe.mozRequestFullScreen();
+  } else if (iframe.msRequestFullscreen) {
+    iframe.msRequestFullscreen();
+  }
+});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&backdrop.classList.contains("open"))closeModal()});
 modalBox.addEventListener("keydown",e=>{
   if(e.key!=="Tab")return;

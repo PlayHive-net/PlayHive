@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AEGIS 3D — Voxel Defense</title>
+    <style>
+    @font-face {
+      font-family: 'Fredoka One';
+      src: url("../../fonts/fredokaone.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Nunito';
+      src: url("../../fonts/Nunito-VariableFont_wght.ttf") format("truetype");
+      font-weight: 200 900;
+      font-style: normal;
+    }
+    </style>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+    <script>
+    // If the three.js CDN failed (offline, blocked, outage) every game script below
+    // would throw at parse time. Show a friendly message instead of a blank page.
+    if (!window.THREE) {
+        document.addEventListener('DOMContentLoaded', function () {
+            var d = document.createElement('div');
+            d.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#fff;font-family:sans-serif;text-align:center;padding:24px;z-index:9999';
+            d.innerHTML = '<div><h1>AEGIS 3D could not load</h1><p>The 3D engine (three.js CDN) failed to load.<br>Check your connection and refresh.</p></div>';
+            document.body.appendChild(d);
+        });
+    }
+    </script>
+</head>
+<body>
+
+<div id="game-canvas"></div>
+
+<!-- ─── DEATH FLASH OVERLAY ─────────────────────────────── -->
+<div id="death-flash"></div>
+
+<!-- ─── CINEMATIC MENU LAYERS ───────────────────────────── -->
+<div id="menu-bg-gradient"></div>
+<canvas id="menu-particles"></canvas>
+
+<div id="ui-layer">
+    <div id="sidebar-left"></div>
+
+    <div id="wave-announcer">WAVE 1</div>
+    <div id="wave-cleared-banner">Wave 1 Cleared!</div>
+    <div id="milestone-banner"></div>
+
+    <!-- ─── MAP UNLOCK MODAL ──────────────────────────────── -->
+    <div id="map-unlock-overlay" class="hidden">
+        <div id="map-unlock-card">
+            <div class="muc-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- shackle wrapped in <g> so transform-origin works in CSS -->
+                    <g class="muc-lock-shackle">
+                        <path d="M17 20v-5a7 7 0 1 1 14 0"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    </g>
+                    <rect class="muc-lock-body-fill" x="10" y="20" width="28" height="20" rx="4"/>
+                    <rect class="muc-lock-body-stroke" x="10" y="20" width="28" height="20" rx="4"
+                        stroke="currentColor" stroke-width="2.5"/>
+                    <circle class="muc-lock-keyhole" cx="24" cy="30" r="2.5" fill="currentColor"/>
+                    <path class="muc-lock-keystem" d="M24 32.5v3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="muc-eyebrow">NEW MAP UNLOCKED</div>
+            <div class="muc-map-name" id="muc-map-name">Serpent Valley</div>
+            <div class="muc-divider"></div>
+            <div class="muc-actions">
+                <button class="muc-btn-primary" id="btn-unlock-play">TRY NOW</button>
+                <button class="muc-btn-secondary" id="btn-unlock-continue">KEEP PLAYING</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebar-right">
+        <button class="btn-small" id="btn-pause" aria-label="Pause">
+            <svg width="14" height="16" viewBox="0 0 14 16" fill="white" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="4" height="14" rx="1.5"/>
+                <rect x="9" y="1" width="4" height="14" rx="1.5"/>
+            </svg>
+        </button>
+        <div class="stat-box credits-box">Gold <span class="stat-value" id="credits">250</span></div>
+        <div class="stat-box wave-box">Wave <span class="stat-value" id="wave-display">1</span></div>
+        <div class="stat-box health-box" id="health-stat-box">Core <span class="stat-value" id="core-health">100%</span></div>
+    </div>
+
+    <div id="info-panel" class="glass-card hidden">
+        <div id="info-header">
+            <div id="info-render-container"></div>
+            <div>
+                <h2 id="info-name">TOWER</h2>
+                <div id="info-upgrade-level" class="upgrade-level-badge">Base</div>
+            </div>
+        </div>
+        <div class="info-stats">
+            <div>Damage <span id="info-dmg" class="stat-highlight">0</span></div>
+            <div>Range <span id="info-rng" class="stat-highlight">0</span></div>
+            <div>Speed <span id="info-spd" class="stat-highlight">0</span></div>
+        </div>
+        <div class="info-targeting">
+            <label>Target</label>
+            <div class="targeting-group" id="targeting-select">
+                <button class="targeting-opt" data-value="furthest">Furthest</button>
+                <button class="targeting-opt" data-value="closest">Closest</button>
+                <button class="targeting-opt" data-value="weakest">Weakest</button>
+            </div>
+        </div>
+        <button class="btn-upgrade" id="btn-upgrade">Upgrade</button>
+        <p class="info-hint">Click again to move</p>
+    </div>
+</div>
+
+<!-- ─── TUTORIAL OVERLAY ─────────────────────────────────── -->
+<div id="tutorial-overlay" class="modal hidden" style="z-index:200;">
+    <div id="tutorial-vignette"></div>
+    <div class="tutorial-card">
+        <svg class="tutorial-hero-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M24 4L8 10V24C8 33.2 15.2 41.8 24 44C32.8 41.8 40 33.2 40 24V10L24 4Z" fill="rgba(0,212,255,0.18)" stroke="#00d4ff" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M17 24l5 5 9-10" stroke="#00d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2 class="tutorial-heading">How to Play</h2>
+        <p id="tutorial-text" class="tutorial-text"></p>
+        <div class="tutorial-progress">
+            <div id="tutorial-dots" class="tutorial-dots"></div>
+            <span class="tutorial-step-count" id="tutorial-step-count">1 / 3</span>
+        </div>
+        <div class="tutorial-btns">
+            <button class="btn-ghost" id="btn-tutorial-skip">Skip</button>
+            <button class="btn-main" id="btn-tutorial-next">Next</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── START SCREEN ──────────────────────────────────────── -->
+<div id="start-screen" class="modal">
+
+    <!-- Floating logo above the glass panel -->
+    <div class="menu-logo-area">
+        <h1 class="menu-title">AEGIS 3D</h1>
+        <p class="menu-tagline">── Voxel Defense ──</p>
+    </div>
+
+    <!-- Glass card panel -->
+    <div id="start-panel" class="glass-card">
+
+        <!-- Last-run stats — hidden until first game played -->
+        <div id="last-run-stats" class="hidden">
+            <div class="last-run-stat stat-last">
+                <span class="lrs-label">Last</span>
+                <span class="lrs-value" id="last-wave-display">—</span>
+            </div>
+            <div class="last-run-stat stat-best">
+                <span class="lrs-label">Best</span>
+                <span class="lrs-value" id="best-wave-display">—</span>
+            </div>
+        </div>
+
+        <!-- Map Select -->
+        <div class="section-block">
+            <div class="section-label">Map</div>
+            <div class="map-select-row">
+
+                <!-- Map 0: Bamboo Pass -->
+                <button class="btn-map selected" data-map="0">
+                    <svg class="map-svg" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="4,4 14,4 14,17 33,17 33,30 52,30 52,43 38,43 38,52"
+                            stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="4"  cy="4"  r="3.5" fill="#7ed321"/>
+                        <circle cx="38" cy="52" r="3.5" fill="#00d4ff"/>
+                    </svg>
+                    <span class="map-name">Bamboo Pass</span>
+                    <span class="map-desc">Zigzag</span>
+                    <span class="map-tooltip"></span>
+                </button>
+
+                <!-- Map 1: Serpent Valley -->
+                <button class="btn-map" data-map="1">
+                    <svg class="map-svg" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="4,10 52,10 52,22 4,22 4,34 52,34 52,46"
+                            stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="4"  cy="10" r="3.5" fill="#7ed321"/>
+                        <circle cx="52" cy="46" r="3.5" fill="#00d4ff"/>
+                    </svg>
+                    <span class="map-name">Serpent Valley</span>
+                    <span class="map-desc">S-curve</span>
+                    <span class="map-tooltip"></span>
+                </button>
+
+                <!-- Map 2: Twin Forks -->
+                <button class="btn-map" data-map="2">
+                    <svg class="map-svg" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Fork A: top — enters left, dips down, U-turns back up, runs right to core -->
+                        <polyline points="4,4 24,4 24,18 36,18 36,4 52,4 52,28"
+                            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Fork B: bottom — mirror, dips up, U-turns back down, runs right to core -->
+                        <polyline points="4,52 24,52 24,38 36,38 36,52 52,52 52,28"
+                            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="4"  cy="4"  r="3" fill="#7ed321"/>
+                        <circle cx="4"  cy="52" r="3" fill="#7ed321"/>
+                        <circle cx="52" cy="28" r="3" fill="#00d4ff"/>
+                    </svg>
+                    <span class="map-name">Twin Forks</span>
+                    <span class="map-desc">Dual path</span>
+                    <span class="map-tooltip"></span>
+                </button>
+
+                <!-- Map 3: Seamless -->
+                <button class="btn-map" data-map="3">
+                    <svg class="map-svg" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="30,30 30,22 22,22 22,38 38,38 38,16 16,16 16,44 44,44"
+                            stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="30" cy="30" r="3.5" fill="#7ed321"/>
+                        <circle cx="44" cy="44" r="3.5" fill="#00d4ff"/>
+                    </svg>
+                    <span class="map-name">Seamless</span>
+                    <span class="map-desc">Expanding</span>
+                    <span class="map-tooltip"></span>
+                </button>
+
+            </div>
+        </div>
+
+        <!-- Difficulty segmented control -->
+        <div class="section-block">
+            <div class="section-label">Difficulty</div>
+            <div class="difficulty-seg" id="difficulty-seg">
+                <div class="diff-slider" id="diff-slider"></div>
+                <button class="diff-opt" data-diff="easy">Easy</button>
+                <button class="diff-opt selected" data-diff="normal">Normal</button>
+                <button class="diff-opt" data-diff="hard">Hard</button>
+            </div>
+        </div>
+
+        <div class="cta-group">
+            <button class="btn-main" id="btn-start">INITIALIZE DEFENSE</button>
+            <button class="btn-ghost" id="btn-how-to-play">How to Play</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── HOW TO PLAY MODAL ─────────────────────────────────── -->
+<div id="how-to-play-modal" class="modal hidden" style="z-index:150;">
+    <div class="guide-panel glass-card">
+        <div class="guide-header">
+            <h2 class="guide-title">Field Guide</h2>
+            <div class="guide-tabs">
+                <button class="guide-tab active" data-tab="basics">Basics</button>
+                <button class="guide-tab" data-tab="towers">Towers</button>
+                <button class="guide-tab" data-tab="enemies">Enemies</button>
+                <button class="guide-tab" data-tab="codex">Codex</button>
+            </div>
+            <button class="btn-icon-close" id="btn-close-htp-x" aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+        <div class="guide-body">
+            <div class="guide-pane active" id="guide-basics"></div>
+            <div class="guide-pane" id="guide-towers"></div>
+            <div class="guide-pane" id="guide-enemies"></div>
+            <div class="guide-pane" id="guide-codex"></div>
+        </div>
+        <div class="guide-footer">
+            <button class="btn-main" id="btn-close-htp">Got it!</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── PAUSE SCREEN ──────────────────────────────────────── -->
+<div id="pause-screen" class="modal hidden">
+    <h1 class="pause-title">PAUSED</h1>
+    <div class="pause-menu-body glass-card">
+        <button class="btn-main" id="btn-resume">
+            <svg width="13" height="15" viewBox="0 0 13 15" fill="white" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <path d="M1.5 1.5l10 6-10 6V1.5z"/>
+            </svg>
+            Resume
+        </button>
+        <button class="btn-ghost btn-pause-option" id="btn-pause-htp">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <path d="M2 3h7a3 3 0 0 1 3 3v7a2 2 0 0 0-2-2H2V3z" stroke-linejoin="round"/>
+                <path d="M14 13a2 2 0 0 0-2-2" stroke-linecap="round"/>
+                <path d="M5 7h4M5 10h3" stroke-linecap="round"/>
+            </svg>
+            Field Guide
+        </button>
+        <button class="btn-ghost btn-pause-option btn-danger-ghost" id="btn-quit-to-menu">
+            <svg width="15" height="13" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <path d="M8 1L1 7h2v6h4V9h2v4h4V7h2L8 1z" stroke-linejoin="round"/>
+            </svg>
+            Main Menu
+        </button>
+    </div>
+</div>
+
+<script src="config.js"></script>
+<script src="assets.js"></script>
+<script src="models.js"></script>
+<script src="map.js"></script>
+<script src="ui.js"></script>
+<script src="entities.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

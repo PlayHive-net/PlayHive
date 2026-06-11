@@ -1390,6 +1390,7 @@ cv.addEventListener('pointerup',e=>{ if(!sw0)return; const dx=e.clientX-sw0.x, d
 
 $('btnRestart').onclick=()=>{ if(LV) loadLevel(levelIndex,false); };
   $('btnLevels').onclick=()=>{ showLevels('game'); };
+  $('btnHelp').onclick=()=>{ showHelp(); };
 
 /* touch detection */
 if(window.matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
